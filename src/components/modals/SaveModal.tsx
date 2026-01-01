@@ -6,6 +6,7 @@ import type { Album } from '../../types/feed';
 import {
   getHostedFeedInfo,
   saveHostedFeedInfo,
+  clearHostedFeedInfo,
   createHostedFeed,
   updateHostedFeed,
   buildHostedUrl,
@@ -373,15 +374,30 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn }: SaveModalProp
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '8px', marginBottom: '8px' }}>
                     Use this URL in Apple Podcasts, Spotify, etc. It always points to the latest version.
                   </p>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      navigator.clipboard.writeText(hostedUrl);
-                      setMessage({ type: 'success', text: 'Feed URL copied to clipboard' });
-                    }}
-                  >
-                    Copy URL
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        navigator.clipboard.writeText(hostedUrl);
+                        setMessage({ type: 'success', text: 'Feed URL copied to clipboard' });
+                      }}
+                    >
+                      Copy URL
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => {
+                        clearHostedFeedInfo(album.podcastGuid);
+                        setHostedInfo(null);
+                        setHostedUrl(null);
+                        setShowEditToken(null);
+                        setMessage({ type: 'success', text: 'Feed unlinked from this browser' });
+                      }}
+                    >
+                      Unlink
+                    </button>
+                  </div>
                 </div>
               )}
               {showEditToken && (
