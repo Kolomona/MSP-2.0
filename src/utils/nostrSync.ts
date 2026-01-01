@@ -364,55 +364,6 @@ export async function loadAlbumByDTag(
   }
 }
 
-// Delete an album (by publishing a delete event - kind 5)
-export async function deleteAlbumFromNostr(
-  eventId: string,
-  relays = DEFAULT_RELAYS
-): Promise<{ success: boolean; message: string }> {
-  if (!window.nostr) {
-    return { success: false, message: 'Nostr extension not found' };
-  }
-
-  try {
-    const pubkey = await window.nostr.getPublicKey();
-
-    // Create delete event (kind 5)
-    const deleteEvent: NostrEvent = {
-      kind: 5,
-      pubkey,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [['e', eventId]],
-      content: ''
-    };
-
-    const signedEvent = await window.nostr.signEvent(deleteEvent);
-
-    // Publish to relays
-    const results = await Promise.allSettled(
-      relays.map(async (relayUrl) => {
-        const ws = await connectRelay(relayUrl);
-        try {
-          await sendAndWait(ws, ['EVENT', signedEvent]);
-        } finally {
-          ws.close();
-        }
-      })
-    );
-
-    const successCount = results.filter(r => r.status === 'fulfilled').length;
-
-    return {
-      success: successCount > 0,
-      message: successCount > 0
-        ? `Delete request sent to ${successCount}/${relays.length} relays`
-        : 'Failed to send delete request'
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, message };
-  }
-}
-
 // Parse content field for lyrics, credits, license
 function parseNostrMusicContent(content: string): NostrMusicContent {
   const result: NostrMusicContent = {};
