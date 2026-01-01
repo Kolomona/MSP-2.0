@@ -1,10 +1,13 @@
 // MSP 2.0 - Music Side Project Studio
 import { useState } from 'react';
 import { FeedProvider, useFeed } from './store/feedStore.tsx';
+import { NostrProvider, useNostr } from './store/nostrStore.tsx';
 import { generateRssFeed, downloadXml, copyToClipboard } from './utils/xmlGenerator';
 import { parseRssFeed, fetchFeedFromUrl } from './utils/xmlParser';
 import { createEmptyAlbum, LANGUAGES, PERSON_GROUPS, PERSON_ROLES } from './types/feed';
 import { FIELD_INFO } from './data/fieldInfo';
+import { NostrLoginButton } from './components/NostrLoginButton';
+import { NostrSyncModal } from './components/NostrSyncModal';
 import './App.css';
 
 // Info Icon Component for tooltips
@@ -898,7 +901,9 @@ function Editor() {
 function AppContent() {
   const { state, dispatch } = useFeed();
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showNostrModal, setShowNostrModal] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const { state: nostrState } = useNostr();
 
   const handleImport = (xml: string) => {
     try {
@@ -936,6 +941,13 @@ function AppContent() {
             }}>
               {saveMessage || '💾 Save'}
             </button>
+            <span className="header-separator" />
+            {nostrState.isLoggedIn && (
+              <button className="btn btn-secondary btn-small" onClick={() => setShowNostrModal(true)}>
+                ⚡ Nostr
+              </button>
+            )}
+            <NostrLoginButton />
           </div>
         </header>
         <Editor />
@@ -947,6 +959,14 @@ function AppContent() {
           onImport={handleImport}
         />
       )}
+
+      {showNostrModal && (
+        <NostrSyncModal
+          onClose={() => setShowNostrModal(false)}
+          album={state.album}
+          onLoadAlbum={(album) => dispatch({ type: 'SET_ALBUM', payload: album })}
+        />
+      )}
     </>
   );
 }
@@ -954,9 +974,11 @@ function AppContent() {
 // Main App
 function App() {
   return (
-    <FeedProvider>
-      <AppContent />
-    </FeedProvider>
+    <NostrProvider>
+      <FeedProvider>
+        <AppContent />
+      </FeedProvider>
+    </NostrProvider>
   );
 }
 
