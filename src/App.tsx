@@ -1,0 +1,854 @@
+// MSP 2.0 - Music Side Project Studio
+import { useState } from 'react';
+import { FeedProvider, useFeed } from './store/feedStore.tsx';
+import { generateRssFeed, downloadXml, copyToClipboard } from './utils/xmlGenerator';
+import { parseRssFeed, fetchFeedFromUrl } from './utils/xmlParser';
+import { createEmptyAlbum, ITUNES_CATEGORIES, LANGUAGES, PERSON_GROUPS, PERSON_ROLES } from './types/feed';
+import { TEMPLATES } from './data/templates';
+import './App.css';
+
+// Import Modal Component
+function ImportModal({ onClose, onImport }: { onClose: () => void; onImport: (xml: string) => void }) {
+  const [mode, setMode] = useState<'paste' | 'url'>('paste');
+  const [xmlContent, setXmlContent] = useState('');
+  const [feedUrl, setFeedUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleImport = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      let xml = xmlContent;
+
+      if (mode === 'url') {
+        xml = await fetchFeedFromUrl(feedUrl);
+      }
+
+      if (!xml.trim()) {
+        throw new Error('No XML content provided');
+      }
+
+      onImport(xml);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import feed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Import Feed</h2>
+          <button className="btn btn-icon" onClick={onClose}>&#10005;</button>
+        </div>
+        <div className="modal-content">
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <button
+              className={`btn ${mode === 'paste' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setMode('paste')}
+            >
+              Paste XML
+            </button>
+            <button
+              className={`btn ${mode === 'url' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setMode('url')}
+            >
+              From URL
+            </button>
+          </div>
+
+          {mode === 'paste' ? (
+            <div className="form-group">
+              <label className="form-label">Paste RSS XML</label>
+              <textarea
+                className="form-textarea"
+                style={{ minHeight: '200px', fontFamily: 'monospace', fontSize: '0.75rem' }}
+                placeholder="Paste your RSS feed XML here..."
+                value={xmlContent}
+                onChange={e => setXmlContent(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="form-group">
+              <label className="form-label">Feed URL</label>
+              <input
+                type="url"
+                className="form-input"
+                placeholder="https://example.com/feed.xml"
+                value={feedUrl}
+                onChange={e => setFeedUrl(e.target.value)}
+              />
+            </div>
+          )}
+
+          {error && (
+            <div style={{ color: 'var(--error)', marginTop: '12px', fontSize: '0.875rem' }}>
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleImport} disabled={loading}>
+            {loading ? 'Importing...' : 'Import Feed'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Template Modal Component
+function TemplateModal({ onClose, onSelect }: { onClose: () => void; onSelect: (templateId: string) => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Choose a Template</h2>
+          <button className="btn btn-icon" onClick={onClose}>&#10005;</button>
+        </div>
+        <div className="modal-content">
+          <div className="template-grid">
+            {TEMPLATES.map(template => (
+              <div
+                key={template.id}
+                className="template-card"
+                onClick={() => {
+                  onSelect(template.id);
+                  onClose();
+                }}
+              >
+                <h3>{template.icon} {template.name}</h3>
+                <p>{template.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Section component for collapsible sections
+function Section({ title, icon, children, defaultOpen = true }: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="section">
+      <div className="section-header" onClick={() => setIsOpen(!isOpen)}>
+        <h2><span className="icon">{icon}</span> {title}</h2>
+        <span className={`section-toggle ${isOpen ? 'expanded' : ''}`}>&#9660;</span>
+      </div>
+      <div className={`section-content ${isOpen ? '' : 'collapsed'}`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Toggle component
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (val: boolean) => void; label?: string }) {
+  return (
+    <div className="toggle-wrapper">
+      <div className={`toggle ${checked ? 'active' : ''}`} onClick={() => onChange(!checked)}>
+        <div className="toggle-knob" />
+      </div>
+      {label && <span className="form-label">{label}</span>}
+    </div>
+  );
+}
+
+// Main Editor Component
+function Editor() {
+  const { state, dispatch } = useFeed();
+  const { album } = state;
+  const [collapsedTracks, setCollapsedTracks] = useState<Set<string>>(new Set());
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const toggleTrackCollapse = (trackId: string) => {
+    setCollapsedTracks(prev => {
+      const next = new Set(prev);
+      if (next.has(trackId)) {
+        next.delete(trackId);
+      } else {
+        next.add(trackId);
+      }
+      return next;
+    });
+  };
+
+  const xml = generateRssFeed(album);
+
+  const handleCopy = async () => {
+    const success = await copyToClipboard(xml);
+    if (success) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
+
+  const handleDownload = () => {
+    const filename = album.title ? `${album.title.toLowerCase().replace(/\s+/g, '-')}.xml` : 'feed.xml';
+    downloadXml(xml, filename);
+  };
+
+  return (
+    <>
+      <div className="main-content">
+        {/* Editor Panel */}
+        <div className="editor-panel">
+          {/* Album Info Section */}
+          <Section title="Album Info" icon="&#128191;">
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Artist/Band <span className="required">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter artist or band name"
+                  value={album.author}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { author: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Album Title <span className="required">*</span></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter album title"
+                  value={album.title}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { title: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Website</label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://yourband.com"
+                  value={album.link}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { link: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Language</label>
+                <select
+                  className="form-select"
+                  value={album.language}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { language: e.target.value } })}
+                >
+                  {LANGUAGES.map(lang => (
+                    <option key={lang.value} value={lang.value}>{lang.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group full-width">
+                <label className="form-label">Description <span className="required">*</span></label>
+                <textarea
+                  className="form-textarea"
+                  placeholder="Describe your album, band members, recording info, etc."
+                  value={album.description}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { description: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Podcast GUID</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Auto-generated UUID"
+                  value={album.podcastGuid}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { podcastGuid: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <Toggle
+                  checked={album.explicit}
+                  onChange={val => dispatch({ type: 'UPDATE_ALBUM', payload: { explicit: val } })}
+                  label="Explicit Content"
+                />
+              </div>
+            </div>
+          </Section>
+
+          {/* Artwork Section */}
+          <Section title="Artwork" icon="&#127912;">
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Album Art URL <span className="required">*</span></label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://example.com/album-art.jpg"
+                  value={album.imageUrl}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { imageUrl: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Image Title</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Album cover description"
+                  value={album.imageTitle}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { imageTitle: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Image Description</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Optional description"
+                  value={album.imageDescription}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { imageDescription: e.target.value } })}
+                />
+              </div>
+              {album.imageUrl && (
+                <div className="form-group full-width">
+                  <img
+                    src={album.imageUrl}
+                    alt="Album preview"
+                    style={{ maxWidth: '200px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+                    onError={e => (e.target as HTMLImageElement).style.display = 'none'}
+                  />
+                </div>
+              )}
+            </div>
+          </Section>
+
+          {/* Credits Section */}
+          <Section title="Credits / Persons" icon="&#128100;">
+            <div className="repeatable-list">
+              {album.persons.map((person, index) => (
+                <div key={index} className="repeatable-item">
+                  <div className="repeatable-item-content">
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label className="form-label">Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Person name"
+                          value={person.name}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_PERSON',
+                            payload: { index, person: { ...person, name: e.target.value } }
+                          })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Group</label>
+                        <select
+                          className="form-select"
+                          value={person.group}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_PERSON',
+                            payload: { index, person: { ...person, group: e.target.value as any, role: PERSON_ROLES[e.target.value]?.[0]?.value || 'band' } }
+                          })}
+                        >
+                          {PERSON_GROUPS.map(g => (
+                            <option key={g.value} value={g.value}>{g.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Role</label>
+                        <select
+                          className="form-select"
+                          value={person.role}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_PERSON',
+                            payload: { index, person: { ...person, role: e.target.value } }
+                          })}
+                        >
+                          {(PERSON_ROLES[person.group] || PERSON_ROLES.music).map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Website</label>
+                        <input
+                          type="url"
+                          className="form-input"
+                          placeholder="https://..."
+                          value={person.href || ''}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_PERSON',
+                            payload: { index, person: { ...person, href: e.target.value } }
+                          })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Photo URL</label>
+                        <input
+                          type="url"
+                          className="form-input"
+                          placeholder="https://..."
+                          value={person.img || ''}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_PERSON',
+                            payload: { index, person: { ...person, img: e.target.value } }
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="repeatable-item-actions">
+                    <button
+                      className="btn btn-icon btn-danger"
+                      onClick={() => dispatch({ type: 'REMOVE_PERSON', payload: index })}
+                    >
+                      &#10005;
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button className="add-item-btn" onClick={() => dispatch({ type: 'ADD_PERSON' })}>
+                + Add Person
+              </button>
+            </div>
+          </Section>
+
+          {/* Value Block Section */}
+          <Section title="Value Block (Lightning)" icon="&#9889;">
+            <div className="form-grid" style={{ marginBottom: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">Suggested Amount (BTC)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="0.000033333"
+                  value={album.value.suggested || ''}
+                  onChange={e => dispatch({
+                    type: 'UPDATE_ALBUM',
+                    payload: { value: { ...album.value, suggested: e.target.value } }
+                  })}
+                />
+              </div>
+            </div>
+            <h4 style={{ marginBottom: '12px', color: 'var(--text-secondary)' }}>Recipients</h4>
+            <div className="repeatable-list">
+              {album.value.recipients.map((recipient, index) => (
+                <div key={index} className="repeatable-item">
+                  <div className="repeatable-item-content">
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label className="form-label">Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Recipient name"
+                          value={recipient.name}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_RECIPIENT',
+                            payload: { index, recipient: { ...recipient, name: e.target.value } }
+                          })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Address</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Node pubkey or LN address"
+                          value={recipient.address}
+                          onChange={e => {
+                            const address = e.target.value;
+                            const detectedType = address.includes('@') ? 'lnaddress' : 'node';
+                            dispatch({
+                              type: 'UPDATE_RECIPIENT',
+                              payload: { index, recipient: { ...recipient, address, type: detectedType } }
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Split %</label>
+                        <input
+                          type="number"
+                          className="form-input"
+                          placeholder="50"
+                          min="0"
+                          max="100"
+                          value={recipient.split}
+                          onChange={e => dispatch({
+                            type: 'UPDATE_RECIPIENT',
+                            payload: { index, recipient: { ...recipient, split: parseInt(e.target.value) || 0 } }
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="repeatable-item-actions">
+                    <button
+                      className="btn btn-icon btn-danger"
+                      onClick={() => dispatch({ type: 'REMOVE_RECIPIENT', payload: index })}
+                    >
+                      &#10005;
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button className="add-item-btn" onClick={() => dispatch({ type: 'ADD_RECIPIENT' })}>
+                + Add Recipient
+              </button>
+            </div>
+          </Section>
+
+          {/* Tracks Section */}
+          <Section title="Tracks" icon="&#127925;">
+            <div className="track-list">
+              {album.tracks.map((track, index) => (
+                <div key={track.id} className="repeatable-item" style={{ flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                    <span className="track-number">{track.trackNumber}</span>
+                    <span style={{ flex: 1, fontWeight: 500 }}>{track.title || 'Untitled Track'}</span>
+                    {track.duration !== '00:00:00' && (
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{track.duration}</span>
+                    )}
+                    <button
+                      className="btn btn-icon"
+                      style={{ background: 'transparent', color: 'var(--text-secondary)' }}
+                      onClick={() => toggleTrackCollapse(track.id)}
+                      title={collapsedTracks.has(track.id) ? 'Expand' : 'Collapse'}
+                    >
+                      {collapsedTracks.has(track.id) ? '▶' : '▼'}
+                    </button>
+                    <button
+                      className="btn btn-icon btn-danger"
+                      onClick={() => dispatch({ type: 'REMOVE_TRACK', payload: index })}
+                    >
+                      &#10005;
+                    </button>
+                  </div>
+                  {!collapsedTracks.has(track.id) && (
+                  <div className="form-grid" style={{ marginTop: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Track Title <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Enter track title"
+                        value={track.title}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { title: e.target.value } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Duration (HH:MM:SS) <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="00:03:45"
+                        value={track.duration}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { duration: e.target.value } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group full-width">
+                      <label className="form-label">MP3 URL <span className="required">*</span></label>
+                      <input
+                        type="url"
+                        className="form-input"
+                        placeholder="https://example.com/track.mp3"
+                        value={track.enclosureUrl}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { enclosureUrl: e.target.value } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group full-width">
+                      <label className="form-label">Description</label>
+                      <textarea
+                        className="form-textarea"
+                        placeholder="Track description or notes"
+                        value={track.description}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { description: e.target.value } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Track Art URL</label>
+                      <input
+                        type="url"
+                        className="form-input"
+                        placeholder="Override album art for this track"
+                        value={track.trackArtUrl || ''}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { trackArtUrl: e.target.value } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Lyrics URL</label>
+                      <input
+                        type="url"
+                        className="form-input"
+                        placeholder="https://example.com/lyrics.srt"
+                        value={track.transcriptUrl || ''}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { transcriptUrl: e.target.value } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <Toggle
+                        checked={track.explicit}
+                        onChange={val => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { explicit: val } }
+                        })}
+                        label="Explicit"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <Toggle
+                        checked={track.overrideValue}
+                        onChange={val => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { overrideValue: val } }
+                        })}
+                        label="Override Value Split"
+                      />
+                    </div>
+                  </div>
+                  )}
+
+                  {/* Track-specific Value Block */}
+                  {track.overrideValue && !collapsedTracks.has(track.id) && (
+                    <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-primary)', borderRadius: '8px' }}>
+                      <h5 style={{ marginBottom: '12px', color: 'var(--text-secondary)' }}>Track Value Recipients</h5>
+                      <div className="repeatable-list">
+                        {(track.value?.recipients || []).map((recipient, rIndex) => (
+                          <div key={rIndex} className="repeatable-item">
+                            <div className="repeatable-item-content">
+                              <div className="form-grid">
+                                <div className="form-group">
+                                  <label className="form-label">Name</label>
+                                  <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Recipient name"
+                                    value={recipient.name}
+                                    onChange={e => {
+                                      const newRecipients = [...(track.value?.recipients || [])];
+                                      newRecipients[rIndex] = { ...recipient, name: e.target.value };
+                                      dispatch({
+                                        type: 'UPDATE_TRACK',
+                                        payload: { index, track: { value: { type: 'lightning', method: 'keysend', recipients: newRecipients } } }
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label className="form-label">Address</label>
+                                  <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Node pubkey or LN address"
+                                    value={recipient.address}
+                                    onChange={e => {
+                                      const address = e.target.value;
+                                      const detectedType = address.includes('@') ? 'lnaddress' : 'node';
+                                      const newRecipients = [...(track.value?.recipients || [])];
+                                      newRecipients[rIndex] = { ...recipient, address, type: detectedType };
+                                      dispatch({
+                                        type: 'UPDATE_TRACK',
+                                        payload: { index, track: { value: { type: 'lightning', method: 'keysend', recipients: newRecipients } } }
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label className="form-label">Split %</label>
+                                  <input
+                                    type="number"
+                                    className="form-input"
+                                    placeholder="50"
+                                    min="0"
+                                    max="100"
+                                    value={recipient.split}
+                                    onChange={e => {
+                                      const newRecipients = [...(track.value?.recipients || [])];
+                                      newRecipients[rIndex] = { ...recipient, split: parseInt(e.target.value) || 0 };
+                                      dispatch({
+                                        type: 'UPDATE_TRACK',
+                                        payload: { index, track: { value: { type: 'lightning', method: 'keysend', recipients: newRecipients } } }
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="repeatable-item-actions">
+                              <button
+                                className="btn btn-icon btn-danger"
+                                onClick={() => {
+                                  const newRecipients = [...(track.value?.recipients || [])];
+                                  newRecipients.splice(rIndex, 1);
+                                  dispatch({
+                                    type: 'UPDATE_TRACK',
+                                    payload: { index, track: { value: { type: 'lightning', method: 'keysend', recipients: newRecipients } } }
+                                  });
+                                }}
+                              >
+                                &#10005;
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          className="add-item-btn"
+                          onClick={() => {
+                            const newRecipients = [...(track.value?.recipients || []), { name: '', address: '', split: 0, type: 'node' as const }];
+                            dispatch({
+                              type: 'UPDATE_TRACK',
+                              payload: { index, track: { value: { type: 'lightning', method: 'keysend', recipients: newRecipients } } }
+                            });
+                          }}
+                        >
+                          + Add Recipient
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button className="add-item-btn" onClick={() => {
+                // Collapse all existing tracks, new track will be open
+                setCollapsedTracks(new Set(album.tracks.map(t => t.id)));
+                dispatch({ type: 'ADD_TRACK' });
+              }}>
+                + Add Track
+              </button>
+            </div>
+          </Section>
+        </div>
+
+      </div>
+
+      {/* Footer Actions */}
+      <div className="footer-actions">
+        <button className="btn btn-primary" onClick={handleDownload}>
+          &#128190; Download XML
+        </button>
+        <button className="btn btn-secondary" onClick={handleCopy}>
+          {copySuccess ? '&#10003; Copied!' : '&#128203; Copy to Clipboard'}
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => {
+            if (confirm('Are you sure you want to reset all fields?')) {
+              dispatch({ type: 'SET_ALBUM', payload: createEmptyAlbum() });
+            }
+          }}
+        >
+          &#128260; Reset
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Main App Content (needs access to context)
+function AppContent() {
+  const { dispatch } = useFeed();
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+
+  const handleImport = (xml: string) => {
+    try {
+      const album = parseRssFeed(xml);
+      dispatch({ type: 'SET_ALBUM', payload: album });
+    } catch (err) {
+      alert('Failed to parse feed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    const template = TEMPLATES.find(t => t.id === templateId);
+    if (template) {
+      const album = template.create();
+      dispatch({ type: 'SET_ALBUM', payload: album });
+    }
+  };
+
+  const handleNew = () => {
+    if (confirm('Create a new feed? This will clear all current data.')) {
+      dispatch({ type: 'SET_ALBUM', payload: createEmptyAlbum() });
+    }
+  };
+
+  return (
+    <>
+      <div className="app">
+        <header className="header">
+          <div className="header-title">
+            <h1>MSP 2.0 - Music Side Project Studio</h1>
+          </div>
+          <div className="header-actions">
+            <button className="btn btn-secondary btn-small" onClick={handleNew}>
+              &#128194; New
+            </button>
+            <button className="btn btn-secondary btn-small" onClick={() => setShowImportModal(true)}>
+              &#128229; Import
+            </button>
+            <button className="btn btn-secondary btn-small" onClick={() => setShowTemplateModal(true)}>
+              &#128221; Templates
+            </button>
+          </div>
+        </header>
+        <Editor />
+      </div>
+
+      {showImportModal && (
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImport}
+        />
+      )}
+
+      {showTemplateModal && (
+        <TemplateModal
+          onClose={() => setShowTemplateModal(false)}
+          onSelect={handleTemplateSelect}
+        />
+      )}
+    </>
+  );
+}
+
+// Main App
+function App() {
+  return (
+    <FeedProvider>
+      <AppContent />
+    </FeedProvider>
+  );
+}
+
+export default App;
