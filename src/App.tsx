@@ -599,20 +599,30 @@ function Editor() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">File Size (bytes)</label>
+                      <label className="form-label">
+                        File Size (MB)
+                        {(!track.enclosureLength || track.enclosureLength === '0') && (
+                          <span style={{ color: 'var(--error)', marginLeft: '4px' }}>⚠ Required</span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="Auto-detected or enter manually"
-                        value={track.enclosureLength}
-                        onChange={e => dispatch({
-                          type: 'UPDATE_TRACK',
-                          payload: { index, track: { enclosureLength: e.target.value.replace(/\D/g, '') } }
-                        })}
+                        placeholder="e.g. 3.25"
+                        defaultValue={track.enclosureLength && parseInt(track.enclosureLength) > 0 ? (parseInt(track.enclosureLength) / 1024 / 1024).toFixed(2) : ''}
+                        onBlur={e => {
+                          const mb = parseFloat(e.target.value) || 0;
+                          const bytes = Math.round(mb * 1024 * 1024);
+                          dispatch({
+                            type: 'UPDATE_TRACK',
+                            payload: { index, track: { enclosureLength: bytes > 0 ? String(bytes) : '' } }
+                          });
+                        }}
+                        style={(!track.enclosureLength || track.enclosureLength === '0') ? { borderColor: 'var(--error)' } : {}}
                       />
                       {track.enclosureLength && parseInt(track.enclosureLength) > 0 && (
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                          = {(parseInt(track.enclosureLength) / 1024 / 1024).toFixed(2)} MB
+                          = {parseInt(track.enclosureLength).toLocaleString()} bytes
                         </span>
                       )}
                     </div>

@@ -178,7 +178,8 @@ function parseTrack(node: unknown, trackNumber: number): Track {
   const enclosure = item.enclosure;
   if (enclosure) {
     track.enclosureUrl = getAttr(enclosure, 'url') || '';
-    track.enclosureLength = getAttr(enclosure, 'length') || '0';
+    const length = getAttr(enclosure, 'length');
+    track.enclosureLength = (length && length !== '0') ? length : '';
     track.enclosureType = getAttr(enclosure, 'type') || 'audio/mpeg';
   }
 
