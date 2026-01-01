@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { FeedProvider, useFeed } from './store/feedStore.tsx';
 import { generateRssFeed, downloadXml, copyToClipboard } from './utils/xmlGenerator';
 import { parseRssFeed, fetchFeedFromUrl } from './utils/xmlParser';
-import { createEmptyAlbum, ITUNES_CATEGORIES, LANGUAGES, PERSON_GROUPS, PERSON_ROLES } from './types/feed';
-import { TEMPLATES } from './data/templates';
+import { createEmptyAlbum, LANGUAGES, PERSON_GROUPS, PERSON_ROLES } from './types/feed';
 import './App.css';
 
 // Import Modal Component
@@ -97,40 +96,6 @@ function ImportModal({ onClose, onImport }: { onClose: () => void; onImport: (xm
           <button className="btn btn-primary" onClick={handleImport} disabled={loading}>
             {loading ? 'Importing...' : 'Import Feed'}
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Template Modal Component
-function TemplateModal({ onClose, onSelect }: { onClose: () => void; onSelect: (templateId: string) => void }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Choose a Template</h2>
-          <button className="btn btn-icon" onClick={onClose}>&#10005;</button>
-        </div>
-        <div className="modal-content">
-          <div className="template-grid">
-            {TEMPLATES.map(template => (
-              <div
-                key={template.id}
-                className="template-card"
-                onClick={() => {
-                  onSelect(template.id);
-                  onClose();
-                }}
-              >
-                <h3>{template.icon} {template.name}</h3>
-                <p>{template.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         </div>
       </div>
     </div>
@@ -754,10 +719,10 @@ function Editor() {
       {/* Footer Actions */}
       <div className="footer-actions">
         <button className="btn btn-primary" onClick={handleDownload}>
-          &#128190; Download XML
+          💾 Download XML
         </button>
         <button className="btn btn-secondary" onClick={handleCopy}>
-          {copySuccess ? '&#10003; Copied!' : '&#128203; Copy to Clipboard'}
+          {copySuccess ? '✓ Copied!' : '📋 Copy to Clipboard'}
         </button>
         <button
           className="btn btn-secondary"
@@ -767,7 +732,7 @@ function Editor() {
             }
           }}
         >
-          &#128260; Reset
+          🔄 Reset
         </button>
       </div>
     </>
@@ -778,7 +743,6 @@ function Editor() {
 function AppContent() {
   const { dispatch } = useFeed();
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   const handleImport = (xml: string) => {
     try {
@@ -786,14 +750,6 @@ function AppContent() {
       dispatch({ type: 'SET_ALBUM', payload: album });
     } catch (err) {
       alert('Failed to parse feed: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    }
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
-    const template = TEMPLATES.find(t => t.id === templateId);
-    if (template) {
-      const album = template.create();
-      dispatch({ type: 'SET_ALBUM', payload: album });
     }
   };
 
@@ -812,13 +768,10 @@ function AppContent() {
           </div>
           <div className="header-actions">
             <button className="btn btn-secondary btn-small" onClick={handleNew}>
-              &#128194; New
+              📂 New
             </button>
             <button className="btn btn-secondary btn-small" onClick={() => setShowImportModal(true)}>
-              &#128229; Import
-            </button>
-            <button className="btn btn-secondary btn-small" onClick={() => setShowTemplateModal(true)}>
-              &#128221; Templates
+              📥 Import
             </button>
           </div>
         </header>
@@ -829,13 +782,6 @@ function AppContent() {
         <ImportModal
           onClose={() => setShowImportModal(false)}
           onImport={handleImport}
-        />
-      )}
-
-      {showTemplateModal && (
-        <TemplateModal
-          onClose={() => setShowTemplateModal(false)}
-          onSelect={handleTemplateSelect}
         />
       )}
     </>
