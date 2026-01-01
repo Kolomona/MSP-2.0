@@ -31,6 +31,7 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn }: SaveModalProp
   const [stableUrl, setStableUrl] = useState<string | null>(null);
   const [hostedInfo, setHostedInfo] = useState<HostedFeedInfo | null>(null);
   const [hostedUrl, setHostedUrl] = useState<string | null>(null);
+  const [showEditToken, setShowEditToken] = useState<string | null>(null);
 
   // Check for existing hosted feed on mount
   useEffect(() => {
@@ -114,7 +115,8 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn }: SaveModalProp
             saveHostedFeedInfo(album.podcastGuid, newInfo);
             setHostedInfo(newInfo);
             setHostedUrl(hostedResult.url);
-            setMessage({ type: 'success', text: 'Feed created!' });
+            setShowEditToken(hostedResult.editToken); // Show token so user can save it
+            setMessage({ type: 'success', text: 'Feed created! Save your edit token below.' });
           }
           break;
       }
@@ -342,7 +344,42 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn }: SaveModalProp
                   </button>
                 </div>
               )}
-              {!hostedInfo && (
+              {showEditToken && (
+                <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--warning, #f59e0b)' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.875rem', fontWeight: 600, color: 'var(--warning, #f59e0b)' }}>
+                    Your Edit Token (save this!)
+                  </label>
+                  <input
+                    type="text"
+                    value={showEditToken}
+                    readOnly
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--warning, #f59e0b)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace'
+                    }}
+                  />
+                  <p style={{ color: 'var(--warning, #f59e0b)', fontSize: '0.75rem', marginTop: '8px', marginBottom: '8px' }}>
+                    Save this token somewhere safe! You'll need it to edit your feed from another browser or device.
+                  </p>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(showEditToken);
+                      setMessage({ type: 'success', text: 'Edit token copied to clipboard' });
+                    }}
+                  >
+                    Copy Token
+                  </button>
+                </div>
+              )}
+              {!hostedInfo && !showEditToken && (
                 <p style={{ color: 'var(--warning, #f59e0b)', fontSize: '0.75rem', marginTop: '12px', padding: '8px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '4px' }}>
                   Your edit token will be saved in this browser. If you clear browser data, you won't be able to update this feed.
                 </p>
