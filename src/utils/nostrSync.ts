@@ -1,15 +1,18 @@
 import type { Album } from '../types/feed';
 import type { NostrEvent, SavedAlbumInfo } from '../types/nostr';
+import { generateRssFeed } from './xmlGenerator';
+import { parseRssFeed } from './xmlParser';
 
 // Default relays to use
 export const DEFAULT_RELAYS = [
   'wss://relay.damus.io',
+  'wss://relay.primal.net',
   'wss://nos.lol',
   'wss://relay.nostr.band'
 ];
 
-// Kind 30078 is for application-specific data (replaceable by d tag)
-const APP_DATA_KIND = 30078;
+// Kind 30054 for podcast/RSS feeds (parameterized replaceable)
+const RSS_FEED_KIND = 30054;
 const CLIENT_TAG = 'MSP 2.0';
 
 // Connect to a relay with timeout
@@ -150,18 +153,18 @@ export async function fetchNostrProfile(
   }
 }
 
-// Create an unsigned event for an album
-function createAlbumEvent(album: Album, pubkey: string): NostrEvent {
+// Create an unsigned event for an RSS feed
+function createFeedEvent(rssXml: string, podcastGuid: string, title: string, pubkey: string): NostrEvent {
   return {
-    kind: APP_DATA_KIND,
+    kind: RSS_FEED_KIND,
     pubkey,
     created_at: Math.floor(Date.now() / 1000),
     tags: [
-      ['d', album.podcastGuid],
-      ['title', album.title || 'Untitled Album'],
+      ['d', podcastGuid],
+      ['title', title || 'Untitled Album'],
       ['client', CLIENT_TAG]
     ],
-    content: JSON.stringify(album)
+    content: rssXml
   };
 }
 
@@ -178,8 +181,11 @@ export async function saveAlbumToNostr(
     // Get public key
     const pubkey = await window.nostr.getPublicKey();
 
+    // Generate RSS XML from album
+    const rssXml = generateRssFeed(album);
+
     // Create and sign the event
-    const unsignedEvent = createAlbumEvent(album, pubkey);
+    const unsignedEvent = createFeedEvent(rssXml, album.podcastGuid, album.title, pubkey);
     const signedEvent = await window.nostr.signEvent(unsignedEvent);
 
     // Publish to relays
@@ -230,7 +236,7 @@ export async function loadAlbumsFromNostr(
         try {
           const subId = Math.random().toString(36).substring(7);
           const filter = {
-            kinds: [APP_DATA_KIND],
+            kinds: [RSS_FEED_KIND],
             authors: [pubkey],
             '#client': [CLIENT_TAG]
           };
@@ -308,7 +314,7 @@ export async function loadAlbumByDTag(
         try {
           const subId = Math.random().toString(36).substring(7);
           const filter = {
-            kinds: [APP_DATA_KIND],
+            kinds: [RSS_FEED_KIND],
             authors: [pubkey],
             '#d': [dTag]
           };
@@ -337,8 +343,8 @@ export async function loadAlbumByDTag(
       return { success: false, album: null, message: 'Album not found' };
     }
 
-    // Parse the album from content
-    const album = JSON.parse(latestEvent.content) as Album;
+    // Parse the RSS XML content back to Album
+    const album = parseRssFeed(latestEvent.content);
     return { success: true, album, message: 'Album loaded successfully' };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
