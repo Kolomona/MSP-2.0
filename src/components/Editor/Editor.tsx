@@ -447,7 +447,7 @@ export function Editor() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">File Size (MB) <InfoIcon text={FIELD_INFO.enclosureLength} /></label>
+                      <label className="form-label">File Size (MB) <span className="required">*</span><InfoIcon text={FIELD_INFO.enclosureLength} /></label>
                       <input
                         type="text"
                         className="form-input"
