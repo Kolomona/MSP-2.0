@@ -437,7 +437,7 @@ export function Editor() {
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="00:03:45"
+                        placeholder="00:00:00"
                         value={track.duration}
                         onChange={e => dispatch({
                           type: 'UPDATE_TRACK',
