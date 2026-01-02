@@ -369,7 +369,7 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
               <input
                 type="text"
                 className="form-input"
-                placeholder="e.g. ZiagqOqCluAv"
+                placeholder="e.g. 95761582-a064-4430-8192-4571d8d3715b"
                 value={hostedFeedId}
                 onChange={e => setHostedFeedId(e.target.value)}
                 style={{ fontFamily: 'monospace', marginBottom: '12px' }}

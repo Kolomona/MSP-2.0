@@ -525,7 +525,7 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn, onImport }: Sav
                         type="text"
                         value={restoreFeedId}
                         onChange={(e) => setRestoreFeedId(e.target.value)}
-                        placeholder="e.g. ZiagqOqCluAv"
+                        placeholder="e.g. 95761582-a064-4430-8192-4571d8d3715b"
                         style={{
                           width: '100%',
                           padding: '8px 12px',
