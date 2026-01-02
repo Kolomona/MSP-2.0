@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { fetchFeedFromUrl } from '../../utils/xmlParser';
 import { loadAlbumsFromNostr, loadAlbumByDTag, fetchNostrMusicTracks, groupTracksByAlbum } from '../../utils/nostrSync';
 import { convertNostrMusicToAlbum, parseNostrEventJson } from '../../utils/nostrMusicConverter';
+import { buildHostedUrl, type HostedFeedInfo } from '../../utils/hostedFeed';
 import type { SavedAlbumInfo, NostrMusicAlbumGroup } from '../../types/nostr';
 import type { Album } from '../../types/feed';
 
@@ -13,7 +14,7 @@ interface ImportModalProps {
 }
 
 export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: ImportModalProps) {
-  const [mode, setMode] = useState<'file' | 'paste' | 'url' | 'nostr' | 'nostrMusic' | 'nostrEvent'>('file');
+  const [mode, setMode] = useState<'file' | 'paste' | 'url' | 'nostr' | 'nostrMusic' | 'nostrEvent' | 'hosted'>('file');
   const [xmlContent, setXmlContent] = useState('');
   const [jsonContent, setJsonContent] = useState('');
   const [feedUrl, setFeedUrl] = useState('');
@@ -24,6 +25,8 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
   const [loadingAlbums, setLoadingAlbums] = useState(false);
   const [musicAlbums, setMusicAlbums] = useState<NostrMusicAlbumGroup[]>([]);
   const [loadingMusic, setLoadingMusic] = useState(false);
+  const [hostedFeedId, setHostedFeedId] = useState('');
+  const [hostedToken, setHostedToken] = useState('');
 
   const fetchSavedAlbums = async () => {
     setLoadingAlbums(true);
@@ -116,6 +119,44 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
     }
   };
 
+  const handleImportHosted = async () => {
+    if (!hostedFeedId.trim()) {
+      setError('Please enter a Feed ID');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Fetch the feed XML (public, no auth needed)
+      const feedUrl = buildHostedUrl(hostedFeedId.trim());
+      const response = await fetch(feedUrl);
+      if (!response.ok) {
+        throw new Error('Feed not found');
+      }
+      const xml = await response.text();
+
+      // If token provided, save credentials for later editing
+      if (hostedToken.trim()) {
+        const newInfo: HostedFeedInfo = {
+          feedId: hostedFeedId.trim(),
+          editToken: hostedToken.trim(),
+          createdAt: Date.now(),
+          lastUpdated: Date.now()
+        };
+        // Store as pending - will be associated with the album's GUID after import
+        localStorage.setItem('msp2-pending-hosted', JSON.stringify(newInfo));
+      }
+
+      onImport(xml);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import hosted feed');
+      setLoading(false);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -190,6 +231,12 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
               onClick={() => setMode('nostrEvent')}
             >
               Nostr Event
+            </button>
+            <button
+              className={`btn ${mode === 'hosted' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setMode('hosted')}
+            >
+              From Hosted
             </button>
             {isLoggedIn && (
               <>
@@ -313,6 +360,33 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
                 onChange={e => setJsonContent(e.target.value)}
               />
             </div>
+          ) : mode === 'hosted' ? (
+            <div className="form-group">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '12px' }}>
+                Import a feed hosted on MSP. Enter the Feed ID from your feed URL.
+              </p>
+              <label className="form-label">Feed ID</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. ZiagqOqCluAv"
+                value={hostedFeedId}
+                onChange={e => setHostedFeedId(e.target.value)}
+                style={{ fontFamily: 'monospace', marginBottom: '12px' }}
+              />
+              <label className="form-label">Edit Token (optional)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Your saved edit token"
+                value={hostedToken}
+                onChange={e => setHostedToken(e.target.value)}
+                style={{ fontFamily: 'monospace' }}
+              />
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '8px' }}>
+                If you have your edit token, enter it to enable editing after import.
+              </p>
+            </div>
           ) : (
             <div className="form-group">
               <label className="form-label">Feed URL</label>
@@ -345,6 +419,10 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
           ) : mode === 'nostrEvent' ? (
             <button className="btn btn-primary" onClick={handleImportNostrEvent} disabled={loading}>
               {loading ? 'Importing...' : 'Import Event'}
+            </button>
+          ) : mode === 'hosted' ? (
+            <button className="btn btn-primary" onClick={handleImportHosted} disabled={loading}>
+              {loading ? 'Importing...' : 'Import Hosted'}
             </button>
           ) : (
             <button className="btn btn-primary" onClick={handleImport} disabled={loading}>
