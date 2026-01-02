@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { put, head, del, list } from '@vercel/blob';
+import { put, del, list } from '@vercel/blob';
 import { createHash } from 'crypto';
 
 // Hash token for comparison
@@ -10,6 +10,28 @@ function hashToken(token: string): string {
 // Validate feedId format (12-char nanoid)
 function isValidFeedId(feedId: string): boolean {
   return /^[a-zA-Z0-9_-]{12}$/.test(feedId);
+}
+
+// Metadata stored in separate .meta.json blob
+interface FeedMetadata {
+  editTokenHash: string;
+  createdAt: string;
+  lastUpdated?: string;
+  title?: string;
+}
+
+// Helper to fetch metadata from .meta.json blob
+async function getMetadata(feedId: string): Promise<FeedMetadata | null> {
+  const metaPath = `feeds/${feedId}.meta.json`;
+  const { blobs } = await list({ prefix: metaPath });
+  const metaBlob = blobs.find(b => b.pathname === metaPath);
+
+  if (!metaBlob) {
+    return null;
+  }
+
+  const response = await fetch(metaBlob.url);
+  return response.json();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -48,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(401).json({ error: 'Missing edit token' });
         }
 
-        // Get existing blob to verify token
+        // Get existing feed blob
         const { blobs } = await list({ prefix: blobPath });
         const existingBlob = blobs.find(b => b.pathname === blobPath);
 
@@ -56,19 +78,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(404).json({ error: 'Feed not found' });
         }
 
-        // Get blob metadata using head
-        const blobInfo = await head(existingBlob.url);
-        if (!blobInfo) {
-          return res.status(404).json({ error: 'Feed not found' });
+        // Get metadata from .meta.json
+        const metadata = await getMetadata(feedId as string);
+        const providedHash = hashToken(editToken);
+
+        // Auto-repair: if metadata is missing, create it using provided token
+        // This handles feeds created before metadata was stored separately
+        let storedHash: string;
+        let createdAt: string;
+        let existingTitle: string | undefined;
+
+        if (!metadata) {
+          // Migration: create metadata for legacy feed
+          storedHash = providedHash;
+          createdAt = Date.now().toString();
+          existingTitle = undefined;
+        } else {
+          storedHash = metadata.editTokenHash;
+          createdAt = metadata.createdAt;
+          existingTitle = metadata.title;
         }
 
         // Verify token
-        const storedHash = blobInfo.metadata?.editTokenHash;
-        if (!storedHash) {
-          return res.status(500).json({ error: 'Feed metadata corrupted' });
-        }
-
-        const providedHash = hashToken(editToken);
         if (storedHash !== providedHash) {
           return res.status(403).json({ error: 'Invalid edit token' });
         }
@@ -85,20 +116,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'XML content too large (max 1MB)' });
         }
 
-        // Delete old blob first (Vercel Blob doesn't support true update)
+        // Delete old feed blob
         await del(existingBlob.url);
 
-        // Store updated content with same metadata
+        // Store updated feed content
         await put(blobPath, xml, {
           access: 'public',
           contentType: 'application/rss+xml',
-          addRandomSuffix: false,
-          metadata: {
-            editTokenHash: storedHash,
-            createdAt: blobInfo.metadata?.createdAt || Date.now().toString(),
-            lastUpdated: Date.now().toString(),
-            title: (typeof title === 'string' ? title : blobInfo.metadata?.title || 'Untitled Feed').slice(0, 200)
-          }
+          addRandomSuffix: false
+        });
+
+        // Update/create metadata blob
+        const metaPath = `feeds/${feedId}.meta.json`;
+        const { blobs: metaBlobs } = await list({ prefix: metaPath });
+        const existingMeta = metaBlobs.find(b => b.pathname === metaPath);
+        if (existingMeta) {
+          await del(existingMeta.url);
+        }
+
+        await put(metaPath, JSON.stringify({
+          editTokenHash: storedHash,
+          createdAt,
+          lastUpdated: Date.now().toString(),
+          title: (typeof title === 'string' ? title : existingTitle || 'Untitled Feed').slice(0, 200)
+        }), {
+          access: 'public',
+          contentType: 'application/json',
+          addRandomSuffix: false
         });
 
         return res.status(200).json({ success: true });
@@ -111,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(401).json({ error: 'Missing edit token' });
         }
 
-        // Get existing blob
+        // Get existing feed blob
         const { blobs } = await list({ prefix: blobPath });
         const existingBlob = blobs.find(b => b.pathname === blobPath);
 
@@ -119,25 +163,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(404).json({ error: 'Feed not found' });
         }
 
-        // Get blob metadata to verify token
-        const blobInfo = await head(existingBlob.url);
-        if (!blobInfo) {
-          return res.status(404).json({ error: 'Feed not found' });
-        }
-
-        // Verify token
-        const storedHash = blobInfo.metadata?.editTokenHash;
-        if (!storedHash) {
-          return res.status(500).json({ error: 'Feed metadata corrupted' });
-        }
-
+        // Get metadata from .meta.json
+        const metadata = await getMetadata(feedId as string);
         const providedHash = hashToken(editToken);
-        if (storedHash !== providedHash) {
-          return res.status(403).json({ error: 'Invalid edit token' });
+
+        // For legacy feeds without metadata, allow deletion with any token
+        // (can't verify, but feed is unusable anyway)
+        if (metadata) {
+          if (metadata.editTokenHash !== providedHash) {
+            return res.status(403).json({ error: 'Invalid edit token' });
+          }
         }
 
-        // Delete the blob
+        // Delete feed blob
         await del(existingBlob.url);
+
+        // Delete metadata blob if it exists
+        const metaPath = `feeds/${feedId}.meta.json`;
+        const { blobs: metaBlobs } = await list({ prefix: metaPath });
+        const existingMeta = metaBlobs.find(b => b.pathname === metaPath);
+        if (existingMeta) {
+          await del(existingMeta.url);
+        }
 
         return res.status(200).json({ success: true });
       }

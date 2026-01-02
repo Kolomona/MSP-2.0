@@ -49,16 +49,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const editToken = generateEditToken();
     const editTokenHash = hashToken(editToken);
 
-    // Store in Vercel Blob
+    // Store feed XML in Vercel Blob
     const blob = await put(`feeds/${feedId}.xml`, xml, {
       access: 'public',
       contentType: 'application/rss+xml',
-      addRandomSuffix: false,
-      metadata: {
-        editTokenHash,
-        createdAt: Date.now().toString(),
-        title: (typeof title === 'string' ? title : 'Untitled Feed').slice(0, 200)
-      }
+      addRandomSuffix: false
+    });
+
+    // Store metadata separately (Vercel Blob doesn't support custom metadata)
+    await put(`feeds/${feedId}.meta.json`, JSON.stringify({
+      editTokenHash,
+      createdAt: Date.now().toString(),
+      title: (typeof title === 'string' ? title : 'Untitled Feed').slice(0, 200)
+    }), {
+      access: 'public',
+      contentType: 'application/json',
+      addRandomSuffix: false
     });
 
     // Build stable URL
