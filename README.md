@@ -5,9 +5,10 @@ A web-based RSS feed editor for creating Podcasting 2.0 compatible music album f
 ## Features
 
 - Create and edit podcast RSS feeds for music albums
-- Podcasting 2.0 namespace support (podcast:person, podcast:value, etc.)
+- Podcasting 2.0 namespace support (podcast:person, podcast:value, podcast:funding, etc.)
 - Value 4 Value (V4V) Lightning payment splits
 - Per-track value recipient overrides
+- Funding links for listener support (Patreon, Ko-fi, etc.)
 - Nostr integration for cloud sync (NIP-07)
 - Import/export feeds as XML
 - Local storage persistence
