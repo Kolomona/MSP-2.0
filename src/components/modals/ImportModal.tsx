@@ -207,53 +207,26 @@ export function ImportModal({ onClose, onImport, onLoadAlbum, isLoggedIn }: Impo
           <button className="btn btn-icon" onClick={onClose}>&#10005;</button>
         </div>
         <div className="modal-content">
-          <div className="import-mode-buttons" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <button
-              className={`btn ${mode === 'file' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('file')}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Import Source</label>
+            <select
+              className="form-select"
+              value={mode}
+              onChange={(e) => {
+                const newMode = e.target.value as typeof mode;
+                setMode(newMode);
+                if (newMode === 'nostr') fetchSavedAlbums();
+                if (newMode === 'nostrMusic') fetchMusicTracks();
+              }}
             >
-              Upload File
-            </button>
-            <button
-              className={`btn ${mode === 'paste' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('paste')}
-            >
-              Paste XML
-            </button>
-            <button
-              className={`btn ${mode === 'url' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('url')}
-            >
-              From URL
-            </button>
-            <button
-              className={`btn ${mode === 'nostrEvent' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('nostrEvent')}
-            >
-              Nostr Event
-            </button>
-            <button
-              className={`btn ${mode === 'hosted' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('hosted')}
-            >
-              From MSP Hosted
-            </button>
-            {isLoggedIn && (
-              <>
-                <button
-                  className={`btn ${mode === 'nostr' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => { setMode('nostr'); fetchSavedAlbums(); }}
-                >
-                  From Nostr
-                </button>
-                <button
-                  className={`btn ${mode === 'nostrMusic' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => { setMode('nostrMusic'); fetchMusicTracks(); }}
-                >
-                  From Nostr Music
-                </button>
-              </>
-            )}
+              <option value="file">Upload File</option>
+              <option value="paste">Paste XML</option>
+              <option value="url">From URL</option>
+              <option value="nostrEvent">Nostr Event</option>
+              <option value="hosted">MSP Hosted</option>
+              {isLoggedIn && <option value="nostr">From Nostr</option>}
+              {isLoggedIn && <option value="nostrMusic">From Nostr Music</option>}
+            </select>
           </div>
 
           {mode === 'nostrMusic' ? (

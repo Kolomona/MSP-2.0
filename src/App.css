@@ -526,7 +526,7 @@ body {
 
 .modal {
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-lg);
   width: 90%;
   max-width: 600px;
@@ -552,6 +552,7 @@ body {
 .modal-content {
   padding: 20px;
   overflow-y: auto;
+  height: 350px;
 }
 
 .modal-footer {
@@ -560,6 +561,37 @@ body {
   gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid var(--border-color);
+}
+
+/* Modal Tabs */
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin: -20px -20px 20px -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+  gap: 0;
+}
+
+.modal-tab {
+  padding: 12px 16px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.modal-tab:hover {
+  color: var(--text-primary);
+}
+
+.modal-tab.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
 }
 
 /* Template Cards */

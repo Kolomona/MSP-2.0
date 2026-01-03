@@ -267,55 +267,21 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn, onImport }: Sav
           <button className="btn btn-icon" onClick={onClose}>&#10005;</button>
         </div>
         <div className="modal-content">
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <button
-              className={`btn ${mode === 'local' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('local')}
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Save Destination</label>
+            <select
+              className="form-select"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as typeof mode)}
             >
-              Local Storage
-            </button>
-            <button
-              className={`btn ${mode === 'download' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('download')}
-            >
-              Download XML
-            </button>
-            <button
-              className={`btn ${mode === 'clipboard' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('clipboard')}
-            >
-              Copy to Clipboard
-            </button>
-            <button
-              className={`btn ${mode === 'hosted' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setMode('hosted')}
-            >
-              Host on MSP
-            </button>
-            {isLoggedIn && (
-              <button
-                className={`btn ${mode === 'nostr' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setMode('nostr')}
-              >
-                Save to Nostr
-              </button>
-            )}
-            {isLoggedIn && (
-              <button
-                className={`btn ${mode === 'nostrMusic' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setMode('nostrMusic')}
-              >
-                Publish Nostr Music
-              </button>
-            )}
-            {isLoggedIn && (
-              <button
-                className={`btn ${mode === 'blossom' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setMode('blossom')}
-              >
-                Publish to Blossom
-              </button>
-            )}
+              <option value="local">Local Storage</option>
+              <option value="download">Download XML</option>
+              <option value="clipboard">Copy to Clipboard</option>
+              <option value="hosted">Host on MSP</option>
+              {isLoggedIn && <option value="nostr">Save to Nostr</option>}
+              {isLoggedIn && <option value="nostrMusic">Publish Nostr Music</option>}
+              {isLoggedIn && <option value="blossom">Publish to Blossom</option>}
+            </select>
           </div>
 
           <div className="nostr-album-preview">
