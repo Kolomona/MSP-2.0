@@ -42,8 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     feedId = feedId.slice(0, -4);
   }
 
-  // Validate feedId
-  if (typeof feedId !== 'string' || !isValidFeedId(feedId)) {
+  // Check for admin key (bypasses UUID validation and edit token)
+  const adminKey = req.headers['x-admin-key'];
+  const isAdmin = process.env.MSP_ADMIN_KEY && adminKey === process.env.MSP_ADMIN_KEY;
+
+  // Validate feedId (admin can use any format, regular users need UUID)
+  if (typeof feedId !== 'string' || (!isAdmin && !isValidFeedId(feedId))) {
     return res.status(400).json({ error: 'Invalid feed ID' });
   }
 
@@ -154,10 +158,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       case 'DELETE': {
-        // Validate edit token
-        const editToken = req.headers['x-edit-token'];
-        if (!editToken || typeof editToken !== 'string') {
-          return res.status(401).json({ error: 'Missing edit token' });
+        // Admin can delete without edit token
+        if (!isAdmin) {
+          // Validate edit token for non-admin
+          const editToken = req.headers['x-edit-token'];
+          if (!editToken || typeof editToken !== 'string') {
+            return res.status(401).json({ error: 'Missing edit token' });
+          }
+
+          // Get metadata from .meta.json
+          const metadata = await getMetadata(feedId as string);
+          const providedHash = hashToken(editToken);
+
+          // For legacy feeds without metadata, allow deletion with any token
+          // (can't verify, but feed is unusable anyway)
+          if (metadata) {
+            if (metadata.editTokenHash !== providedHash) {
+              return res.status(403).json({ error: 'Invalid edit token' });
+            }
+          }
         }
 
         // Get existing feed blob
@@ -166,18 +185,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!existingBlob) {
           return res.status(404).json({ error: 'Feed not found' });
-        }
-
-        // Get metadata from .meta.json
-        const metadata = await getMetadata(feedId as string);
-        const providedHash = hashToken(editToken);
-
-        // For legacy feeds without metadata, allow deletion with any token
-        // (can't verify, but feed is unusable anyway)
-        if (metadata) {
-          if (metadata.editTokenHash !== providedHash) {
-            return res.status(403).json({ error: 'Invalid edit token' });
-          }
         }
 
         // Delete feed blob
