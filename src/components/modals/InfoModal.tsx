@@ -19,7 +19,7 @@ export function InfoModal({ onClose }: InfoModalProps) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal info-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>About Music Side Project</h2>
+          <h2>About Music Side Project 2.0</h2>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-content info-content">
