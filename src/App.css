@@ -735,10 +735,18 @@ body {
 }
 
 /* Modal Tabs */
+.modal-header + .modal-tabs {
+  /* Remove header border when tabs follow */
+}
+
+.modal-header:has(+ .modal-tabs) {
+  border-bottom: none;
+}
+
 .modal-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-color);
-  margin: -20px -20px 20px -20px;
+  margin: 0 -20px 20px -20px;
   padding: 0 20px;
   overflow-x: auto;
   gap: 0;
@@ -753,6 +761,8 @@ body {
   font-size: 0.875rem;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  position: relative;
   transition: color var(--transition), border-color var(--transition);
 }
 
@@ -840,6 +850,10 @@ body {
 
   .header-title h1 {
     font-size: 1.1rem;
+  }
+
+  .title-full {
+    display: none;
   }
 
   .header-actions {
@@ -1215,6 +1229,19 @@ body {
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--border-color);
+}
+
+.nostr-avatar-fallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .nostr-npub {

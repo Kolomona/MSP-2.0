@@ -16,12 +16,14 @@ export function NostrLoginButton() {
   if (isLoggedIn && user) {
     return (
       <div className="nostr-user-info">
-        {user.picture && (
+        {user.picture ? (
           <img
             src={user.picture}
             alt=""
             className="nostr-avatar"
           />
+        ) : (
+          <span className="nostr-avatar-fallback" title="Signed in">✓</span>
         )}
         <span className="nostr-npub" title={user.npub}>
           {user.displayName || truncateNpub(user.npub)}

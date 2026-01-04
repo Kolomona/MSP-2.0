@@ -76,7 +76,7 @@ function AppContent() {
         <header className="header">
           <div className="header-title">
             <img src={mspLogo} alt="MSP Logo" className="header-logo" />
-            <h1>MSP 2.0 - Music Side Project Studio</h1>
+            <h1><span className="title-short">MSP 2.0</span><span className="title-full"> - Music Side Project Studio</span></h1>
           </div>
           <div className="header-actions">
             <NostrLoginButton />
