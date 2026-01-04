@@ -600,6 +600,7 @@ body {
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  overflow: hidden;
 }
 
 .modal {
@@ -612,6 +613,8 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
 }
 
 .modal-header {
@@ -686,6 +689,9 @@ body {
 .info-content {
   max-height: 70vh;
   line-height: 1.7;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .info-content h1 {
@@ -930,6 +936,51 @@ body {
     min-height: 36px;
   }
 
+  /* Form inputs - prevent iOS zoom */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px;
+  }
+
+  /* Toggle - larger touch target */
+  .toggle {
+    width: 52px;
+    height: 32px;
+    border-radius: 16px;
+  }
+
+  .toggle-knob {
+    width: 26px;
+    height: 26px;
+    top: 2px;
+    left: 2px;
+  }
+
+  .toggle.active .toggle-knob {
+    transform: translateX(20px);
+  }
+
+  /* Icon buttons - ensure 44px touch target */
+  .btn-icon {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+  }
+
+  /* Info icon - larger touch target */
+  .info-icon-wrapper {
+    padding: 12px;
+    margin: -12px;
+    margin-left: -8px;
+  }
+
+  .info-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+
   /* Tooltip adjustments */
   .info-tooltip {
     position: fixed;
@@ -1006,6 +1057,12 @@ body {
     height: 100%;
     margin: 0;
     border-radius: 0;
+  }
+
+  .modal-content {
+    flex: 1;
+    max-height: none;
+    min-height: 0;
   }
 
   .modal-header h2 {
@@ -1107,6 +1164,7 @@ body {
   font-weight: 400;
   color: var(--text-primary);
   width: 280px;
+  max-width: calc(100vw - 32px);
   z-index: 1000;
   box-shadow: var(--shadow-lg);
   line-height: 1.4;
