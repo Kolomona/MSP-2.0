@@ -46,10 +46,10 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn, onImport }: Sav
 
   // Generate token when selecting hosted mode for a new feed
   useEffect(() => {
-    if (mode === 'hosted' && !hostedInfo && !pendingToken) {
+    if (mode === 'hosted' && !hostedInfo && !pendingToken && !showRestore) {
       setPendingToken(generateEditToken());
     }
-  }, [mode, hostedInfo, pendingToken]);
+  }, [mode, hostedInfo, pendingToken, showRestore]);
 
   // Check for existing hosted feed on mount, and apply pending credentials
   useEffect(() => {
@@ -495,6 +495,17 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn, onImport }: Sav
                     />
                     <span>I have saved my edit token</span>
                   </label>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '6px 12px', marginTop: '12px', width: '100%' }}
+                    onClick={() => {
+                      setPendingToken(null);
+                      setTokenAcknowledged(false);
+                      setShowRestore(true);
+                    }}
+                  >
+                    Already have a token? Restore existing feed
+                  </button>
                 </div>
               )}
               {hostedUrl && (
