@@ -52,9 +52,19 @@ export const parseRssFeed = (xmlString: string): Album => {
     album.categories = catArray.map(c => getAttr(c, 'text')).filter(Boolean) as string[];
   }
 
+  // Keywords
+  album.keywords = getText(channel['itunes:keywords']) || '';
+
   // Explicit
   const explicitVal = channel['itunes:explicit'];
   album.explicit = explicitVal === true || explicitVal === 'true' || getText(explicitVal) === 'true';
+
+  // Owner
+  const owner = channel['itunes:owner'];
+  if (owner) {
+    album.ownerName = getText((owner as Record<string, unknown>)['itunes:name']) || '';
+    album.ownerEmail = getText((owner as Record<string, unknown>)['itunes:email']) || '';
+  }
 
   // Image
   const image = channel.image;
@@ -206,10 +216,18 @@ function parseTrack(node: unknown, trackNumber: number, albumValue: ValueBlock, 
   // Duration
   track.duration = getText(item['itunes:duration']) || '00:00:00';
 
+  // Season number
+  const season = item['podcast:season'];
+  if (season) {
+    track.season = parseInt(getText(season)) || undefined;
+  }
+
   // Episode number
   const episode = item['podcast:episode'];
   if (episode) {
-    track.trackNumber = parseInt(getText(episode)) || trackNumber;
+    const episodeNum = parseInt(getText(episode));
+    track.episode = episodeNum || undefined;
+    track.trackNumber = episodeNum || trackNumber;
   }
 
   // Explicit

@@ -129,6 +129,47 @@ export function Editor() {
                   labelSuffix={<InfoIcon text={FIELD_INFO.explicit} />}
                 />
               </div>
+              <div className="form-group">
+                <label className="form-label">Keywords<InfoIcon text={FIELD_INFO.keywords} /></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="rock, indie, guitar, electronic"
+                  value={album.keywords || ''}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { keywords: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Medium<InfoIcon text={FIELD_INFO.medium} /></label>
+                <select
+                  className="form-select"
+                  value={album.medium || 'music'}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { medium: e.target.value as 'music' | 'musicL' } })}
+                >
+                  <option value="music">Music</option>
+                  <option value="musicL">Music (Long-form)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Owner Name<InfoIcon text={FIELD_INFO.ownerName} /></label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Your name or band name"
+                  value={album.ownerName || ''}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { ownerName: e.target.value } })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Owner Email<InfoIcon text={FIELD_INFO.ownerEmail} /></label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="contact@yourband.com"
+                  value={album.ownerEmail || ''}
+                  onChange={e => dispatch({ type: 'UPDATE_ALBUM', payload: { ownerEmail: e.target.value } })}
+                />
+              </div>
             </div>
           </Section>
 
@@ -523,6 +564,46 @@ export function Editor() {
                           = {parseInt(track.enclosureLength).toLocaleString()} bytes
                         </span>
                       )}
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Pub Date<InfoIcon text={FIELD_INFO.trackPubDate} /></label>
+                      <input
+                        type="datetime-local"
+                        className="form-input"
+                        value={track.pubDate ? new Date(track.pubDate).toISOString().slice(0, 16) : ''}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { pubDate: new Date(e.target.value).toUTCString() } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Season<InfoIcon text={FIELD_INFO.trackSeason} /></label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="1"
+                        min="1"
+                        value={track.season ?? ''}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { season: e.target.value ? parseInt(e.target.value) : undefined } }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Episode #<InfoIcon text={FIELD_INFO.trackEpisode} /></label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder={String(track.trackNumber)}
+                        min="1"
+                        value={track.episode ?? ''}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { episode: e.target.value ? parseInt(e.target.value) : undefined } }
+                        })}
+                      />
                     </div>
                     <div className="form-group full-width">
                       <label className="form-label">Description<InfoIcon text={FIELD_INFO.trackDescription} /></label>

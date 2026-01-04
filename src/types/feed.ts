@@ -33,6 +33,8 @@ export interface Funding {
 export interface Track {
   id: string;
   trackNumber: number;
+  season?: number;
+  episode?: number;
   title: string;
   description: string;
   pubDate: string;
@@ -72,7 +74,10 @@ export interface Album {
 
   // iTunes
   categories: string[];
+  keywords: string;
   explicit: boolean;
+  ownerName: string;
+  ownerEmail: string;
 
   // Artwork
   imageUrl: string;
@@ -106,6 +111,8 @@ export interface FeedState {
 export const createEmptyTrack = (trackNumber: number): Track => ({
   id: crypto.randomUUID(),
   trackNumber,
+  season: undefined,
+  episode: undefined,
   title: '',
   description: '',
   pubDate: new Date().toUTCString(),
@@ -141,7 +148,10 @@ export const createEmptyAlbum = (): Album => ({
   lockedOwner: '',
   location: '',
   categories: [],
+  keywords: '',
   explicit: false,
+  ownerName: '',
+  ownerEmail: '',
   imageUrl: '',
   imageTitle: '',
   imageLink: '',

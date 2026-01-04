@@ -9,6 +9,10 @@ export const FIELD_INFO = {
   link: "The main website you want listeners to visit (usually a band website).",
   language: "The language the feed is written in. See rssboard.org/rss-language-codes for codes.",
   podcastGuid: "A Globally Unique ID used to identify your feed across platforms and services.",
+  keywords: "Comma-separated keywords for search and discovery (e.g., rock, indie, guitar).",
+  medium: "Content type: 'music' for standard albums, 'musicL' for long-form music content.",
+  ownerName: "The feed owner's name. Used for podcast directory contact info.",
+  ownerEmail: "The feed owner's email address. Used for podcast directory contact info.",
   explicit: "Mark if your content contains explicit language or themes.",
 
   // Artwork
@@ -38,6 +42,9 @@ export const FIELD_INFO = {
   trackTitle: "The song title.",
   trackDescription: "Optional description or notes about the track.",
   trackDuration: "Total duration in HH:MM:SS format. Required for podcast apps.",
+  trackPubDate: "Publication date/time for this track. Used for sorting and display in podcast apps.",
+  trackSeason: "Season number for grouping tracks (e.g., 1 for first album). Optional.",
+  trackEpisode: "Episode number for this track. Defaults to track order if not set.",
   enclosureUrl: "Direct link to the MP3 file. Ensure CORS policy allows access.",
   enclosureLength: "File size in MB. Important for podcast apps to show download size.",
   trackArtUrl: "Optional track-specific artwork. If empty, album art is used.",

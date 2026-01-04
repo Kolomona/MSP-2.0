@@ -107,8 +107,13 @@ const generateTrackXml = (track: Track, album: Album, level: number): string => 
   // Duration
   lines.push(`${indent(level + 1)}<itunes:duration>${track.duration}</itunes:duration>`);
 
-  // Track number
-  lines.push(`${indent(level + 1)}<podcast:episode>${track.trackNumber}</podcast:episode>`);
+  // Season
+  if (track.season) {
+    lines.push(`${indent(level + 1)}<podcast:season>${track.season}</podcast:season>`);
+  }
+
+  // Episode number (use track.episode if set, otherwise trackNumber)
+  lines.push(`${indent(level + 1)}<podcast:episode>${track.episode ?? track.trackNumber}</podcast:episode>`);
 
   // Explicit
   lines.push(`${indent(level + 1)}<itunes:explicit>${track.explicit ? 'true' : 'false'}</itunes:explicit>`);
@@ -182,6 +187,11 @@ export const generateRssFeed = (album: Album): string => {
     lines.push(`${indent(2)}<itunes:category text="${escapeXml(cat)}" />`);
   });
 
+  // Keywords
+  if (album.keywords) {
+    lines.push(`${indent(2)}<itunes:keywords>${escapeXml(album.keywords)}</itunes:keywords>`);
+  }
+
   // Location
   if (album.location) {
     lines.push(`${indent(2)}<podcast:location>${escapeXml(album.location)}</podcast:location>`);
@@ -216,6 +226,18 @@ export const generateRssFeed = (album: Album): string => {
 
   // Explicit
   lines.push(`${indent(2)}<itunes:explicit>${album.explicit ? 'true' : 'false'}</itunes:explicit>`);
+
+  // Owner
+  if (album.ownerName || album.ownerEmail) {
+    lines.push(`${indent(2)}<itunes:owner>`);
+    if (album.ownerName) {
+      lines.push(`${indent(3)}<itunes:name>${escapeXml(album.ownerName)}</itunes:name>`);
+    }
+    if (album.ownerEmail) {
+      lines.push(`${indent(3)}<itunes:email>${escapeXml(album.ownerEmail)}</itunes:email>`);
+    }
+    lines.push(`${indent(2)}</itunes:owner>`);
+  }
 
   // Persons
   album.persons.forEach(p => lines.push(generatePersonXml(p, 2)));
