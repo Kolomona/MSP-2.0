@@ -4,6 +4,7 @@ import type { NostrEvent } from '../types/nostr';
 import { generateRssFeed } from './xmlGenerator';
 import { hexToNpub } from './nostr';
 import { DEFAULT_RELAYS, publishEventToRelays } from './nostrRelay';
+import { getSigner, hasSigner } from './nostrSigner';
 
 // Blossom auth event kind
 const BLOSSOM_AUTH_KIND = 24242;
@@ -85,20 +86,21 @@ async function publishFileMetadata(
   album: Album,
   relays: string[]
 ): Promise<{ success: boolean; eventId?: string }> {
-  if (!window.nostr) {
+  if (!hasSigner()) {
     return { success: false };
   }
 
   try {
-    const pubkey = await window.nostr.getPublicKey();
+    const signer = getSigner();
+    const pubkey = await signer.getPublicKey();
     const unsignedEvent = createFileMetadataEvent(blossomUrl, hash, fileSize, album, pubkey);
-    const signedEvent = await window.nostr.signEvent(unsignedEvent);
+    const signedEvent = await signer.signEvent(unsignedEvent);
 
-    const { successCount } = await publishEventToRelays(signedEvent, relays);
+    const { successCount } = await publishEventToRelays(signedEvent as NostrEvent, relays);
 
     return {
       success: successCount > 0,
-      eventId: signedEvent.id
+      eventId: (signedEvent as NostrEvent).id
     };
   } catch {
     return { success: false };
@@ -112,12 +114,13 @@ export async function uploadToBlossom(
   album: Album,
   blossomServer: string
 ): Promise<{ success: boolean; message: string; url?: string; stableUrl?: string }> {
-  if (!window.nostr) {
-    return { success: false, message: 'Nostr extension not found' };
+  if (!hasSigner()) {
+    return { success: false, message: 'Not logged in' };
   }
 
   try {
-    const pubkey = await window.nostr.getPublicKey();
+    const signer = getSigner();
+    const pubkey = await signer.getPublicKey();
 
     // Generate RSS XML
     const rssXml = generateRssFeed(album);
@@ -127,7 +130,7 @@ export async function uploadToBlossom(
 
     // Create and sign auth event
     const authEvent = await createBlossomAuthEvent(hash, pubkey, 'upload');
-    const signedAuthEvent = await window.nostr.signEvent(authEvent);
+    const signedAuthEvent = await signer.signEvent(authEvent);
 
     // Base64 encode the signed event for Authorization header
     const authHeader = 'Nostr ' + btoa(JSON.stringify(signedAuthEvent));

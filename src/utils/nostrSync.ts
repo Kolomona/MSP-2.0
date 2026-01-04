@@ -9,6 +9,7 @@ import {
   collectEvents,
   publishEventToRelays
 } from './nostrRelay';
+import { getSigner, hasSigner } from './nostrSigner';
 
 // Re-export for backward compatibility
 export { DEFAULT_RELAYS };
@@ -102,13 +103,14 @@ export async function saveAlbumToNostr(
   hasChanges = true,
   relays = DEFAULT_RELAYS
 ): Promise<{ success: boolean; message: string }> {
-  if (!window.nostr) {
-    return { success: false, message: 'Nostr extension not found' };
+  if (!hasSigner()) {
+    return { success: false, message: 'Not logged in' };
   }
 
   try {
+    const signer = getSigner();
     // Get public key
-    const pubkey = await window.nostr.getPublicKey();
+    const pubkey = await signer.getPublicKey();
 
     // Only update lastBuildDate if there are actual changes
     const updatedAlbum = hasChanges
@@ -120,10 +122,10 @@ export async function saveAlbumToNostr(
 
     // Create and sign the event
     const unsignedEvent = createFeedEvent(rssXml, album.podcastGuid, album.title, pubkey);
-    const signedEvent = await window.nostr.signEvent(unsignedEvent);
+    const signedEvent = await signer.signEvent(unsignedEvent);
 
     // Publish to relays
-    const { successCount } = await publishEventToRelays(signedEvent, relays);
+    const { successCount } = await publishEventToRelays(signedEvent as NostrEvent, relays);
 
     if (successCount === 0) {
       return { success: false, message: 'Failed to publish to any relay' };
@@ -143,12 +145,13 @@ export async function saveAlbumToNostr(
 export async function loadAlbumsFromNostr(
   relays = DEFAULT_RELAYS
 ): Promise<{ success: boolean; albums: SavedAlbumInfo[]; message: string }> {
-  if (!window.nostr) {
-    return { success: false, albums: [], message: 'Nostr extension not found' };
+  if (!hasSigner()) {
+    return { success: false, albums: [], message: 'Not logged in' };
   }
 
   try {
-    const pubkey = await window.nostr.getPublicKey();
+    const signer = getSigner();
+    const pubkey = await signer.getPublicKey();
     const allEvents: NostrEvent[] = [];
 
     // Query each relay
@@ -221,12 +224,13 @@ export async function loadAlbumByDTag(
   dTag: string,
   relays = DEFAULT_RELAYS
 ): Promise<{ success: boolean; album: Album | null; message: string }> {
-  if (!window.nostr) {
-    return { success: false, album: null, message: 'Nostr extension not found' };
+  if (!hasSigner()) {
+    return { success: false, album: null, message: 'Not logged in' };
   }
 
   try {
-    const pubkey = await window.nostr.getPublicKey();
+    const signer = getSigner();
+    const pubkey = await signer.getPublicKey();
     let latestEvent: NostrEvent | null = null;
 
     // Query each relay
@@ -389,12 +393,13 @@ export function groupTracksByAlbum(tracks: NostrMusicTrackInfo[]): NostrMusicAlb
 export async function fetchNostrMusicTracks(
   relays = DEFAULT_RELAYS
 ): Promise<{ success: boolean; tracks: NostrMusicTrackInfo[]; message: string }> {
-  if (!window.nostr) {
-    return { success: false, tracks: [], message: 'Nostr extension not found' };
+  if (!hasSigner()) {
+    return { success: false, tracks: [], message: 'Not logged in' };
   }
 
   try {
-    const pubkey = await window.nostr.getPublicKey();
+    const signer = getSigner();
+    const pubkey = await signer.getPublicKey();
     const allEvents: NostrEvent[] = [];
 
     // Query each relay
@@ -572,8 +577,8 @@ export async function publishNostrMusicTracks(
   relays = DEFAULT_RELAYS,
   onProgress?: (progress: PublishProgress) => void
 ): Promise<{ success: boolean; message: string; publishedCount: number }> {
-  if (!window.nostr) {
-    return { success: false, message: 'Nostr extension not found', publishedCount: 0 };
+  if (!hasSigner()) {
+    return { success: false, message: 'Not logged in', publishedCount: 0 };
   }
 
   if (!album.tracks || album.tracks.length === 0) {
@@ -581,7 +586,8 @@ export async function publishNostrMusicTracks(
   }
 
   try {
-    const pubkey = await window.nostr.getPublicKey();
+    const signer = getSigner();
+    const pubkey = await signer.getPublicKey();
     let publishedCount = 0;
     const total = album.tracks.length;
 
@@ -600,10 +606,10 @@ export async function publishNostrMusicTracks(
 
       // Create and sign the event
       const unsignedEvent = createMusicTrackEvent(track, album, pubkey);
-      const signedEvent = await window.nostr.signEvent(unsignedEvent);
+      const signedEvent = await signer.signEvent(unsignedEvent);
 
       // Publish to all relays
-      const { successCount } = await publishEventToRelays(signedEvent, relays);
+      const { successCount } = await publishEventToRelays(signedEvent as NostrEvent, relays);
 
       // Count as published if at least one relay succeeded
       if (successCount > 0) {

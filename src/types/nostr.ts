@@ -53,6 +53,7 @@ export interface NostrAuthState {
   isLoading: boolean;
   error: string | null;
   hasExtension: boolean;
+  connectionMethod: 'nip07' | 'nip46' | null;
 }
 
 // Saved album info from Nostr

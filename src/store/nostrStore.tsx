@@ -3,14 +3,21 @@ import { createContext, useContext, useReducer, useEffect, useCallback } from 'r
 import type { ReactNode } from 'react';
 import type { NostrAuthState, NostrUser } from '../types/nostr';
 import {
-  hasNostrExtension,
-  waitForNostrExtension,
-  getPublicKey,
   hexToNpub,
   loadStoredUser,
   saveUser,
   clearStoredUser
 } from '../utils/nostr';
+import {
+  hasNip07Extension,
+  initNip07Signer,
+  initNip46SignerFromBunker,
+  waitForNip46Connection,
+  reconnectNip46,
+  clearSigner,
+  loadConnectionMethod,
+  loadBunkerPointer,
+} from '../utils/nostrSigner';
 import { fetchNostrProfile } from '../utils/nostrSync';
 
 // Action types
@@ -18,10 +25,11 @@ type NostrAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_HAS_EXTENSION'; payload: boolean }
-  | { type: 'LOGIN_SUCCESS'; payload: NostrUser }
+  | { type: 'SET_CONNECTION_METHOD'; payload: 'nip07' | 'nip46' | null }
+  | { type: 'LOGIN_SUCCESS'; payload: { user: NostrUser; method: 'nip07' | 'nip46' } }
   | { type: 'UPDATE_PROFILE'; payload: { displayName?: string; picture?: string; nip05?: string } }
   | { type: 'LOGOUT' }
-  | { type: 'RESTORE_SESSION'; payload: NostrUser };
+  | { type: 'RESTORE_SESSION'; payload: { user: NostrUser; method: 'nip07' | 'nip46' } };
 
 // Initial state
 const initialState: NostrAuthState = {
@@ -29,7 +37,8 @@ const initialState: NostrAuthState = {
   user: null,
   isLoading: true,
   error: null,
-  hasExtension: false
+  hasExtension: false,
+  connectionMethod: null,
 };
 
 // Reducer
@@ -41,11 +50,14 @@ function nostrReducer(state: NostrAuthState, action: NostrAction): NostrAuthStat
       return { ...state, error: action.payload, isLoading: false };
     case 'SET_HAS_EXTENSION':
       return { ...state, hasExtension: action.payload };
+    case 'SET_CONNECTION_METHOD':
+      return { ...state, connectionMethod: action.payload };
     case 'LOGIN_SUCCESS':
       return {
         ...state,
         isLoggedIn: true,
-        user: action.payload,
+        user: action.payload.user,
+        connectionMethod: action.payload.method,
         isLoading: false,
         error: null
       };
@@ -64,13 +76,15 @@ function nostrReducer(state: NostrAuthState, action: NostrAction): NostrAuthStat
         ...state,
         isLoggedIn: false,
         user: null,
-        error: null
+        error: null,
+        connectionMethod: null,
       };
     case 'RESTORE_SESSION':
       return {
         ...state,
         isLoggedIn: true,
-        user: action.payload,
+        user: action.payload.user,
+        connectionMethod: action.payload.method,
         isLoading: false
       };
     default:
@@ -82,6 +96,7 @@ function nostrReducer(state: NostrAuthState, action: NostrAction): NostrAuthStat
 interface NostrContextType {
   state: NostrAuthState;
   login: () => Promise<void>;
+  loginWithNip46: (bunkerUri?: string, onUriGenerated?: (uri: string) => void) => Promise<void>;
   logout: () => void;
 }
 
@@ -96,38 +111,82 @@ export function NostrProvider({ children }: { children: ReactNode }) {
     async function init() {
       // Check for stored session
       const storedUser = loadStoredUser();
+      const storedMethod = loadConnectionMethod();
 
-      // Wait for extension to be available
-      const extensionAvailable = await waitForNostrExtension(2000);
+      // Check for NIP-07 extension
+      // Wait a bit for extension to inject
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const extensionAvailable = hasNip07Extension();
       dispatch({ type: 'SET_HAS_EXTENSION', payload: extensionAvailable });
 
-      if (storedUser && extensionAvailable) {
-        // Verify the stored session is still valid
-        try {
-          const currentPubkey = await getPublicKey();
-          if (currentPubkey === storedUser.pubkey) {
-            dispatch({ type: 'RESTORE_SESSION', payload: storedUser });
+      // Try to restore session based on stored method
+      if (storedUser && storedMethod) {
+        if (storedMethod === 'nip46') {
+          // Try to reconnect NIP-46
+          const bunkerPointer = loadBunkerPointer();
+          if (bunkerPointer) {
+            try {
+              const pubkey = await reconnectNip46();
+              if (pubkey && pubkey === storedUser.pubkey) {
+                dispatch({ type: 'RESTORE_SESSION', payload: { user: storedUser, method: 'nip46' } });
 
-            // Refresh profile in background
-            fetchNostrProfile(currentPubkey).then((profile) => {
-              if (profile) {
-                dispatch({
-                  type: 'UPDATE_PROFILE',
-                  payload: {
-                    displayName: profile.display_name || profile.name,
-                    picture: profile.picture,
-                    nip05: profile.nip05
+                // Refresh profile in background
+                fetchNostrProfile(pubkey).then((profile) => {
+                  if (profile) {
+                    dispatch({
+                      type: 'UPDATE_PROFILE',
+                      payload: {
+                        displayName: profile.display_name || profile.name,
+                        picture: profile.picture,
+                        nip05: profile.nip05
+                      }
+                    });
                   }
                 });
+                return;
               }
-            });
-          } else {
-            // Different account, clear stored session
-            clearStoredUser();
-            dispatch({ type: 'SET_LOADING', payload: false });
+            } catch (e) {
+              console.error('Failed to reconnect NIP-46:', e);
+            }
           }
-        } catch {
-          // Extension refused or error, clear stored session
+          // Failed to reconnect, clear stored session
+          clearStoredUser();
+          clearSigner();
+          dispatch({ type: 'SET_LOADING', payload: false });
+        } else if (storedMethod === 'nip07' && extensionAvailable) {
+          // Verify NIP-07 session
+          try {
+            const pubkey = await initNip07Signer();
+            if (pubkey === storedUser.pubkey) {
+              dispatch({ type: 'RESTORE_SESSION', payload: { user: storedUser, method: 'nip07' } });
+
+              // Refresh profile in background
+              fetchNostrProfile(pubkey).then((profile) => {
+                if (profile) {
+                  dispatch({
+                    type: 'UPDATE_PROFILE',
+                    payload: {
+                      displayName: profile.display_name || profile.name,
+                      picture: profile.picture,
+                      nip05: profile.nip05
+                    }
+                  });
+                }
+              });
+              return;
+            } else {
+              // Different account, clear stored session
+              clearStoredUser();
+              clearSigner();
+            }
+          } catch {
+            // Extension refused or error, clear stored session
+            clearStoredUser();
+            clearSigner();
+          }
+          dispatch({ type: 'SET_LOADING', payload: false });
+        } else {
+          // No valid method to restore
           clearStoredUser();
           dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -138,17 +197,13 @@ export function NostrProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
-  // Login function
+  // Login with NIP-07 (browser extension)
   const login = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      if (!hasNostrExtension()) {
-        throw new Error('No Nostr extension found. Please install Alby or another NIP-07 extension.');
-      }
-
-      const pubkey = await getPublicKey();
+      const pubkey = await initNip07Signer();
       const npub = hexToNpub(pubkey);
 
       const user: NostrUser = {
@@ -162,7 +217,64 @@ export function NostrProvider({ children }: { children: ReactNode }) {
       // Save to localStorage
       saveUser(user);
 
-      dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+      dispatch({ type: 'LOGIN_SUCCESS', payload: { user, method: 'nip07' } });
+
+      // Fetch profile in background
+      fetchNostrProfile(pubkey).then((profile) => {
+        if (profile) {
+          dispatch({
+            type: 'UPDATE_PROFILE',
+            payload: {
+              displayName: profile.display_name || profile.name,
+              picture: profile.picture,
+              nip05: profile.nip05
+            }
+          });
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed';
+      dispatch({ type: 'SET_ERROR', payload: message });
+    }
+  }, []);
+
+  // Login with NIP-46 (remote signer)
+  const loginWithNip46 = useCallback(async (
+    bunkerUri?: string,
+    onUriGenerated?: (uri: string) => void
+  ) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
+
+    try {
+      let pubkey: string;
+
+      if (bunkerUri) {
+        // Bunker-initiated flow - user provided bunker:// URI
+        pubkey = await initNip46SignerFromBunker(bunkerUri);
+      } else if (onUriGenerated) {
+        // Client-initiated flow - generate URI and wait for connection
+        pubkey = await waitForNip46Connection((uri) => {
+          onUriGenerated(uri);
+        });
+      } else {
+        throw new Error('Either bunkerUri or onUriGenerated callback is required');
+      }
+
+      const npub = hexToNpub(pubkey);
+
+      const user: NostrUser = {
+        pubkey,
+        npub,
+        displayName: undefined,
+        picture: undefined,
+        nip05: undefined
+      };
+
+      // Save to localStorage
+      saveUser(user);
+
+      dispatch({ type: 'LOGIN_SUCCESS', payload: { user, method: 'nip46' } });
 
       // Fetch profile in background
       fetchNostrProfile(pubkey).then((profile) => {
@@ -186,11 +298,12 @@ export function NostrProvider({ children }: { children: ReactNode }) {
   // Logout function
   const logout = useCallback(() => {
     clearStoredUser();
+    clearSigner();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
   return (
-    <NostrContext.Provider value={{ state, login, logout }}>
+    <NostrContext.Provider value={{ state, login, loginWithNip46, logout }}>
       {children}
     </NostrContext.Provider>
   );

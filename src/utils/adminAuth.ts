@@ -1,4 +1,5 @@
 // Admin authentication utilities for frontend
+import { getSigner, hasSigner } from './nostrSigner';
 
 interface NostrEvent {
   id?: string;
@@ -24,11 +25,12 @@ interface ListFeedsResponse {
 
 // Sign a NIP-98 auth event
 async function signAuthEvent(url: string, method: string): Promise<NostrEvent> {
-  if (!window.nostr) {
-    throw new Error('Nostr extension not available');
+  if (!hasSigner()) {
+    throw new Error('Not logged in');
   }
 
-  const event: NostrEvent = {
+  const signer = getSigner();
+  const event = {
     kind: 27235,
     created_at: Math.floor(Date.now() / 1000),
     tags: [
@@ -38,7 +40,7 @@ async function signAuthEvent(url: string, method: string): Promise<NostrEvent> {
     content: ''
   };
 
-  return await window.nostr.signEvent(event);
+  return await signer.signEvent(event) as NostrEvent;
 }
 
 // Full authentication flow
@@ -68,11 +70,12 @@ export async function authenticateAdmin(): Promise<{ success: boolean; pubkey?: 
 
 // Create Authorization header for admin API requests
 export async function createAdminAuthHeader(url: string, method: string): Promise<string> {
-  if (!window.nostr) {
-    throw new Error('Nostr extension not available');
+  if (!hasSigner()) {
+    throw new Error('Not logged in');
   }
 
-  const event: NostrEvent = {
+  const signer = getSigner();
+  const event = {
     kind: 27235,
     created_at: Math.floor(Date.now() / 1000),
     tags: [
@@ -82,7 +85,7 @@ export async function createAdminAuthHeader(url: string, method: string): Promis
     content: ''
   };
 
-  const signedEvent = await window.nostr.signEvent(event);
+  const signedEvent = await signer.signEvent(event);
   const eventJson = JSON.stringify(signedEvent);
   const base64Event = btoa(eventJson);
 

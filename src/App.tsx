@@ -9,6 +9,7 @@ import { NostrLoginButton } from './components/NostrLoginButton';
 import { ImportModal } from './components/modals/ImportModal';
 import { SaveModal } from './components/modals/SaveModal';
 import { InfoModal } from './components/modals/InfoModal';
+import { NostrConnectModal } from './components/modals/NostrConnectModal';
 import { Editor } from './components/Editor/Editor';
 import { AdminPage } from './components/admin/AdminPage';
 import type { Album } from './types/feed';
@@ -21,9 +22,10 @@ function AppContent() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showNostrConnectModal, setShowNostrConnectModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { state: nostrState, login: nostrLogin, logout: nostrLogout } = useNostr();
+  const { state: nostrState, logout: nostrLogout } = useNostr();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -124,10 +126,9 @@ function AppContent() {
                   ) : (
                     <button
                       className="dropdown-item"
-                      onClick={() => { nostrLogin(); setShowDropdown(false); }}
-                      disabled={!nostrState.hasExtension}
+                      onClick={() => { setShowNostrConnectModal(true); setShowDropdown(false); }}
                     >
-                      🔑 {nostrState.hasExtension ? 'Sign In (nostr)' : 'No Extension'}
+                      🔑 Sign In (nostr)
                     </button>
                   )}
                   {import.meta.env.DEV && (
@@ -173,6 +174,10 @@ function AppContent() {
 
       {showInfoModal && (
         <InfoModal onClose={() => setShowInfoModal(false)} />
+      )}
+
+      {showNostrConnectModal && (
+        <NostrConnectModal onClose={() => setShowNostrConnectModal(false)} />
       )}
     </>
   );
