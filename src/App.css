@@ -98,6 +98,11 @@ body {
   background-clip: text;
 }
 
+.title-short,
+.title-full {
+  display: inline;
+}
+
 .header-actions {
   display: flex;
   gap: 8px;
