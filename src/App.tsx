@@ -115,6 +115,15 @@ function AppContent() {
                   >
                     ℹ️ Info
                   </button>
+                  <a
+                    className="dropdown-item"
+                    href="https://podtards.com/bae35f5f42e952ff9e3f9fa0fc4c6c0de179cce6a6e08dd1f4cc19d9b2120dfe.mp4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    🎬 Overview Video
+                  </a>
                   <div className="dropdown-divider" />
                   {nostrState.isLoggedIn ? (
                     <button
