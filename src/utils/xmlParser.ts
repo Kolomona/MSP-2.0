@@ -1,6 +1,6 @@
 // MSP 2.0 - XML Parser for importing Demu RSS Feeds
 import { XMLParser } from 'fast-xml-parser';
-import type { Album, Track, Person, PersonRole, PersonGroup, ValueRecipient, ValueBlock, Funding } from '../types/feed';
+import type { Album, Track, Person, PersonGroup, ValueRecipient, ValueBlock, Funding } from '../types/feed';
 import { createEmptyAlbum, createEmptyTrack } from '../types/feed';
 import { areValueBlocksStrictEqual, arePersonsEqual } from './comparison';
 

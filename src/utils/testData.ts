@@ -9,9 +9,9 @@ export function generateTestAlbum(): Album {
   const podcastGuid = crypto.randomUUID();
 
   const testPersons: Person[] = [
-    { name: 'Jane Doe', group: 'music', role: 'vocalist', href: 'https://example.com/jane', img: '' },
-    { name: 'John Smith', group: 'music', role: 'guitarist', href: '', img: '' },
-    { name: 'Bob Wilson', group: 'production', role: 'producer', href: '', img: '' }
+    { name: 'Jane Doe', roles: [{ group: 'music', role: 'vocalist' }], href: 'https://example.com/jane', img: '' },
+    { name: 'John Smith', roles: [{ group: 'music', role: 'guitarist' }], href: '', img: '' },
+    { name: 'Bob Wilson', roles: [{ group: 'audio-production', role: 'producer' }], href: '', img: '' }
   ];
 
   const testRecipients: ValueRecipient[] = [
