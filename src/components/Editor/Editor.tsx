@@ -10,34 +10,35 @@ import { Toggle } from '../Toggle';
 // Get MP3 duration from URL using Audio API (works without CORS)
 function getAudioDuration(url: string): Promise<number | null> {
   return new Promise((resolve) => {
+    let resolved = false;
     const audio = new Audio();
     audio.preload = 'metadata';
 
-    const cleanup = () => {
+    const done = (duration: number | null) => {
+      if (resolved) return;
+      resolved = true;
       audio.src = '';
-      audio.load();
+      resolve(duration);
     };
 
     audio.onloadedmetadata = () => {
       const duration = audio.duration;
-      cleanup();
-      resolve(isFinite(duration) ? duration : null);
+      done(isFinite(duration) && duration > 0 ? duration : null);
     };
 
     audio.onerror = () => {
-      cleanup();
-      resolve(null);
+      done(null);
     };
 
     // Timeout after 10 seconds
     setTimeout(() => {
-      cleanup();
-      resolve(null);
+      done(null);
     }, 10000);
 
     audio.src = url;
   });
 }
+
 
 // Convert seconds to HH:MM:SS format
 function secondsToHHMMSS(totalSeconds: number): string {
@@ -652,13 +653,14 @@ export function Editor() {
                         onPaste={async e => {
                           const url = e.clipboardData.getData('text').trim();
                           if (url && url.startsWith('http')) {
+                            const isNewUrl = url !== track.enclosureUrl;
                             // Update the URL field immediately
                             dispatch({
                               type: 'UPDATE_TRACK',
                               payload: { index, track: { enclosureUrl: url } }
                             });
-                            // Fetch duration using Audio API (works without CORS)
-                            if (!track.duration) {
+                            // Fetch duration using Audio API (always fetch for new URLs)
+                            if (isNewUrl || !track.duration) {
                               const duration = await getAudioDuration(url);
                               if (duration !== null) {
                                 dispatch({
@@ -667,20 +669,12 @@ export function Editor() {
                                 });
                               }
                             }
-                            // Try to fetch file size (may fail due to CORS)
-                            if (!track.enclosureLength) {
-                              try {
-                                const response = await fetch(url, { method: 'HEAD' });
-                                const length = response.headers.get('content-length');
-                                if (length && parseInt(length) > 0) {
-                                  dispatch({
-                                    type: 'UPDATE_TRACK',
-                                    payload: { index, track: { enclosureLength: length } }
-                                  });
-                                }
-                              } catch {
-                                // CORS blocked - user needs to enter file size manually
-                              }
+                            // Set placeholder file size
+                            if (isNewUrl || !track.enclosureLength) {
+                              dispatch({
+                                type: 'UPDATE_TRACK',
+                                payload: { index, track: { enclosureLength: '33' } }
+                              });
                             }
                           }
                         }}
@@ -697,20 +691,12 @@ export function Editor() {
                                 });
                               }
                             }
-                            // Try to fetch file size (may fail due to CORS)
+                            // Set placeholder file size
                             if (!track.enclosureLength) {
-                              try {
-                                const response = await fetch(url, { method: 'HEAD' });
-                                const length = response.headers.get('content-length');
-                                if (length && parseInt(length) > 0) {
-                                  dispatch({
-                                    type: 'UPDATE_TRACK',
-                                    payload: { index, track: { enclosureLength: length } }
-                                  });
-                                }
-                              } catch {
-                                // CORS blocked - user needs to enter file size manually
-                              }
+                              dispatch({
+                                type: 'UPDATE_TRACK',
+                                payload: { index, track: { enclosureLength: '33' } }
+                              });
                             }
                           }
                         }}
@@ -740,28 +726,6 @@ export function Editor() {
                           }
                         }}
                       />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">File Size (MB) <span className="required">*</span><InfoIcon text={FIELD_INFO.enclosureLength} /></label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="e.g. 3.25"
-                        defaultValue={track.enclosureLength && parseInt(track.enclosureLength) > 0 ? (parseInt(track.enclosureLength) / 1024 / 1024).toFixed(2) : ''}
-                        onBlur={e => {
-                          const mb = parseFloat(e.target.value) || 0;
-                          const bytes = Math.round(mb * 1024 * 1024);
-                          dispatch({
-                            type: 'UPDATE_TRACK',
-                            payload: { index, track: { enclosureLength: bytes > 0 ? String(bytes) : '' } }
-                          });
-                        }}
-                      />
-                      {track.enclosureLength && parseInt(track.enclosureLength) > 0 && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                          = {parseInt(track.enclosureLength).toLocaleString()} bytes
-                        </span>
-                      )}
                     </div>
                     <div className="form-group">
                       <label className="form-label">Pub Date<InfoIcon text={FIELD_INFO.trackPubDate} /></label>
