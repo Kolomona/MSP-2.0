@@ -7,6 +7,46 @@ import { InfoIcon } from '../InfoIcon';
 import { Section } from '../Section';
 import { Toggle } from '../Toggle';
 
+// Get MP3 duration from URL using Audio API (works without CORS)
+function getAudioDuration(url: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    audio.preload = 'metadata';
+
+    const cleanup = () => {
+      audio.src = '';
+      audio.load();
+    };
+
+    audio.onloadedmetadata = () => {
+      const duration = audio.duration;
+      cleanup();
+      resolve(isFinite(duration) ? duration : null);
+    };
+
+    audio.onerror = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 10000);
+
+    audio.src = url;
+  });
+}
+
+// Convert seconds to HH:MM:SS format
+function secondsToHHMMSS(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 // Format duration to HH:MM:SS
 function formatDuration(input: string): string {
   const cleaned = input.replace(/[^\d:]/g, '');
@@ -599,6 +639,84 @@ export function Editor() {
                       />
                     </div>
                     <div className="form-group">
+                      <label className="form-label">MP3 URL <span className="required">*</span><InfoIcon text={FIELD_INFO.enclosureUrl} /></label>
+                      <input
+                        type="url"
+                        className="form-input"
+                        placeholder="https://example.com/track.mp3"
+                        value={track.enclosureUrl || ''}
+                        onChange={e => dispatch({
+                          type: 'UPDATE_TRACK',
+                          payload: { index, track: { enclosureUrl: e.target.value } }
+                        })}
+                        onPaste={async e => {
+                          const url = e.clipboardData.getData('text').trim();
+                          if (url && url.startsWith('http')) {
+                            // Update the URL field immediately
+                            dispatch({
+                              type: 'UPDATE_TRACK',
+                              payload: { index, track: { enclosureUrl: url } }
+                            });
+                            // Fetch duration using Audio API (works without CORS)
+                            if (!track.duration) {
+                              const duration = await getAudioDuration(url);
+                              if (duration !== null) {
+                                dispatch({
+                                  type: 'UPDATE_TRACK',
+                                  payload: { index, track: { duration: secondsToHHMMSS(duration) } }
+                                });
+                              }
+                            }
+                            // Try to fetch file size (may fail due to CORS)
+                            if (!track.enclosureLength) {
+                              try {
+                                const response = await fetch(url, { method: 'HEAD' });
+                                const length = response.headers.get('content-length');
+                                if (length && parseInt(length) > 0) {
+                                  dispatch({
+                                    type: 'UPDATE_TRACK',
+                                    payload: { index, track: { enclosureLength: length } }
+                                  });
+                                }
+                              } catch {
+                                // CORS blocked - user needs to enter file size manually
+                              }
+                            }
+                          }
+                        }}
+                        onBlur={async e => {
+                          const url = e.target.value;
+                          if (url && url.startsWith('http')) {
+                            // Fetch duration using Audio API (works without CORS)
+                            if (!track.duration) {
+                              const duration = await getAudioDuration(url);
+                              if (duration !== null) {
+                                dispatch({
+                                  type: 'UPDATE_TRACK',
+                                  payload: { index, track: { duration: secondsToHHMMSS(duration) } }
+                                });
+                              }
+                            }
+                            // Try to fetch file size (may fail due to CORS)
+                            if (!track.enclosureLength) {
+                              try {
+                                const response = await fetch(url, { method: 'HEAD' });
+                                const length = response.headers.get('content-length');
+                                if (length && parseInt(length) > 0) {
+                                  dispatch({
+                                    type: 'UPDATE_TRACK',
+                                    payload: { index, track: { enclosureLength: length } }
+                                  });
+                                }
+                              } catch {
+                                // CORS blocked - user needs to enter file size manually
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="form-group">
                       <label className="form-label">Duration (HH:MM:SS) <span className="required">*</span><InfoIcon text={FIELD_INFO.trackDuration} /></label>
                       <input
                         type="text"
@@ -619,36 +737,6 @@ export function Editor() {
                               type: 'UPDATE_TRACK',
                               payload: { index, track: { duration: formatDuration((e.target as HTMLInputElement).value) } }
                             });
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">MP3 URL <span className="required">*</span><InfoIcon text={FIELD_INFO.enclosureUrl} /></label>
-                      <input
-                        type="url"
-                        className="form-input"
-                        placeholder="https://example.com/track.mp3"
-                        value={track.enclosureUrl || ''}
-                        onChange={e => dispatch({
-                          type: 'UPDATE_TRACK',
-                          payload: { index, track: { enclosureUrl: e.target.value } }
-                        })}
-                        onBlur={async e => {
-                          const url = e.target.value;
-                          if (url && url.startsWith('http') && !track.enclosureLength) {
-                            try {
-                              const response = await fetch(url, { method: 'HEAD' });
-                              const length = response.headers.get('content-length');
-                              if (length && parseInt(length) > 0) {
-                                dispatch({
-                                  type: 'UPDATE_TRACK',
-                                  payload: { index, track: { enclosureLength: length } }
-                                });
-                              }
-                            } catch {
-                              // CORS blocked - user needs to enter manually
-                            }
                           }
                         }}
                       />
