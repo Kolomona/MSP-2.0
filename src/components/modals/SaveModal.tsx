@@ -800,17 +800,26 @@ export function SaveModal({ onClose, album, isDirty, isLoggedIn, onImport }: Sav
                     </button>
                   </div>
                   {podcastIndexPageUrl && (
-                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
-                      <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ marginTop: '12px', padding: '12px', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', fontWeight: 600, color: '#3b82f6' }}>
                         Podcast Index Page
                       </label>
                       <a
                         href={podcastIndexPageUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ fontSize: '0.75rem', color: '#3b82f6', wordBreak: 'break-all' }}
+                        style={{
+                          display: 'inline-block',
+                          padding: '8px 16px',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          textDecoration: 'none'
+                        }}
                       >
-                        {podcastIndexPageUrl}
+                        View on Podcast Index →
                       </a>
                     </div>
                   )}
