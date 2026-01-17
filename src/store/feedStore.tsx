@@ -42,7 +42,10 @@ type FeedAction =
   | { type: 'ADD_REMOTE_ITEM'; payload?: RemoteItem }
   | { type: 'UPDATE_REMOTE_ITEM'; payload: { index: number; item: RemoteItem } }
   | { type: 'REMOVE_REMOTE_ITEM'; payload: number }
-  | { type: 'CREATE_NEW_PUBLISHER_FEED' };
+  | { type: 'CREATE_NEW_PUBLISHER_FEED' }
+  | { type: 'ADD_PUBLISHER_RECIPIENT'; payload?: ValueRecipient }
+  | { type: 'UPDATE_PUBLISHER_RECIPIENT'; payload: { index: number; recipient: ValueRecipient } }
+  | { type: 'REMOVE_PUBLISHER_RECIPIENT'; payload: number };
 
 // State interface
 interface FeedState {
@@ -386,6 +389,50 @@ function feedReducer(state: FeedState, action: FeedAction): FeedState {
         ...state,
         publisherFeed: createEmptyPublisherFeed(),
         feedType: 'publisher',
+        isDirty: true
+      };
+
+    case 'ADD_PUBLISHER_RECIPIENT':
+      if (!state.publisherFeed) return state;
+      return {
+        ...state,
+        publisherFeed: {
+          ...state.publisherFeed,
+          value: {
+            ...state.publisherFeed.value,
+            recipients: [...state.publisherFeed.value.recipients, action.payload || createEmptyRecipient()]
+          }
+        },
+        isDirty: true
+      };
+
+    case 'UPDATE_PUBLISHER_RECIPIENT':
+      if (!state.publisherFeed) return state;
+      return {
+        ...state,
+        publisherFeed: {
+          ...state.publisherFeed,
+          value: {
+            ...state.publisherFeed.value,
+            recipients: state.publisherFeed.value.recipients.map((r, i) =>
+              i === action.payload.index ? action.payload.recipient : r
+            )
+          }
+        },
+        isDirty: true
+      };
+
+    case 'REMOVE_PUBLISHER_RECIPIENT':
+      if (!state.publisherFeed) return state;
+      return {
+        ...state,
+        publisherFeed: {
+          ...state.publisherFeed,
+          value: {
+            ...state.publisherFeed.value,
+            recipients: state.publisherFeed.value.recipients.filter((_, i) => i !== action.payload)
+          }
+        },
         isDirty: true
       };
 
