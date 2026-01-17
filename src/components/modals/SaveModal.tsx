@@ -72,6 +72,7 @@ export function SaveModal({ onClose, album, publisherFeed, feedType = 'album', i
   const [podcastIndexUrl, setPodcastIndexUrl] = useState('');
   const [submittingToIndex, setSubmittingToIndex] = useState(false);
   const [podcastIndexPageUrl, setPodcastIndexPageUrl] = useState<string | null>(null);
+  const [podcastIndexPending, setPodcastIndexPending] = useState(false); // True when PI notified but not yet indexed
 
   // Check if feed is linked to current user's Nostr identity
   const isNostrLinked = hostedInfo?.ownerPubkey && nostrState.user?.pubkey === hostedInfo.ownerPubkey;
@@ -106,11 +107,17 @@ export function SaveModal({ onClose, album, publisherFeed, feedType = 'album', i
       const res = await fetch(`/api/pubnotify?url=${encodeURIComponent(feedUrl)}`);
       const data = await res.json();
       if (data.success) {
-        // Use returned URL or fall back to search URL
-        const searchUrl = `https://podcastindex.org/search?q=${encodeURIComponent(feedUrl)}`;
-        const pageUrl = data.podcastIndexUrl || searchUrl;
-        setPodcastIndexPageUrl(pageUrl);
-        return pageUrl;
+        if (data.podcastIndexUrl) {
+          // Feed is already indexed - we have a direct page URL
+          setPodcastIndexPageUrl(data.podcastIndexUrl);
+          setPodcastIndexPending(false);
+          return data.podcastIndexUrl;
+        } else {
+          // Feed submitted but not yet indexed
+          setPodcastIndexPending(true);
+          setPodcastIndexPageUrl(null);
+          return 'pending';
+        }
       }
     } catch (err) {
       console.warn('Failed to notify Podcast Index:', err);
@@ -850,19 +857,34 @@ export function SaveModal({ onClose, album, publisherFeed, feedType = 'album', i
                       Unlink
                     </button>
                   </div>
-                  {podcastIndexPageUrl && (
+                  {(podcastIndexPageUrl || podcastIndexPending) && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
                       <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        View on Podcast Index
+                        Podcast Index
                       </label>
-                      <a
-                        href={podcastIndexPageUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: '0.875rem', color: '#3b82f6', wordBreak: 'break-all' }}
-                      >
-                        {podcastIndexPageUrl}
-                      </a>
+                      {podcastIndexPageUrl ? (
+                        <a
+                          href={podcastIndexPageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '0.875rem', color: '#3b82f6', wordBreak: 'break-all' }}
+                        >
+                          {podcastIndexPageUrl}
+                        </a>
+                      ) : (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          Feed submitted to Podcast Index. It may take a few minutes to appear.
+                          <br />
+                          <a
+                            href={`https://podcastindex.org/search?q=${encodeURIComponent(hostedUrl || '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#3b82f6' }}
+                          >
+                            Check status or add manually →
+                          </a>
+                        </p>
+                      )}
                     </div>
                   )}
                   {/* Link Nostr button for existing feeds without Nostr link */}
