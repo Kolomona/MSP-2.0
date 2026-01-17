@@ -201,9 +201,8 @@ export function PublisherEditor() {
       }
 
       // No credentials or not MSP-hosted - download for manual upload
-      // Use feed title as filename (sanitized), matching common naming convention
-      const safeTitle = feedTitle.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'feed';
-      const filename = `${safeTitle}.xml`;
+      const safeTitle = feedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'feed';
+      const filename = `${safeTitle}-with-publisher.xml`;
       downloadXml(updatedXml, filename);
       return {
         title: feedTitle,
