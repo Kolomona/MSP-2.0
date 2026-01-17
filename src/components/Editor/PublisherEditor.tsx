@@ -201,8 +201,15 @@ export function PublisherEditor() {
       }
 
       // No credentials or not MSP-hosted - download for manual upload
-      // Use the album's podcastGuid as filename to match hosted URL pattern
-      const filename = `${album.podcastGuid || item.feedGuid}.xml`;
+      // Extract filename from original URL, or fall back to GUID
+      let filename = 'feed.xml';
+      try {
+        const urlPath = new URL(feedUrl).pathname;
+        const lastSegment = urlPath.split('/').pop() || '';
+        filename = lastSegment.endsWith('.xml') ? lastSegment : `${lastSegment}.xml`;
+      } catch {
+        filename = `${album.podcastGuid || item.feedGuid}.xml`;
+      }
       downloadXml(updatedXml, filename);
       return {
         title: feedTitle,
