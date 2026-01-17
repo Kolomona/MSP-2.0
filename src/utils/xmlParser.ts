@@ -91,11 +91,11 @@ export const parseRssFeed = (xmlString: string): Album => {
     album.lockedOwner = getAttr(locked, 'owner') || '';
   }
 
-  // Categories
+  // Categories - handle both content format and text attribute format
   const categories = channel['itunes:category'];
   if (categories) {
     const catArray = Array.isArray(categories) ? categories : [categories];
-    album.categories = catArray.map(c => getAttr(c, 'text')).filter(Boolean) as string[];
+    album.categories = catArray.map(c => getText(c) || getAttr(c, 'text')).filter(Boolean) as string[];
   }
 
   // Keywords

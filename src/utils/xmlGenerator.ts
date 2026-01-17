@@ -346,10 +346,13 @@ export const generateRssFeed = (album: Album): string => {
     lines.push(`${indent(2)}<podcast:guid>${escapeXml(album.podcastGuid)}</podcast:guid>`);
   }
 
-  // Categories
-  album.categories.forEach(cat => {
-    lines.push(`${indent(2)}<itunes:category text="${escapeXml(cat)}" />`);
-  });
+  // Categories - always include "Music" first, then other categories
+  lines.push(`${indent(2)}<itunes:category>Music</itunes:category>`);
+  album.categories
+    .filter(cat => cat.toLowerCase() !== 'music')  // Avoid duplicate if user also added "Music"
+    .forEach(cat => {
+      lines.push(`${indent(2)}<itunes:category>${escapeXml(cat)}</itunes:category>`);
+    });
 
   // Keywords
   if (album.keywords) {
