@@ -268,7 +268,9 @@ export function PublisherEditor() {
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                marginBottom: '16px'
+                marginBottom: '16px',
+                maxHeight: '300px',
+                overflowY: 'auto'
               }}>
                 {searchResults.map(result => (
                   <div
