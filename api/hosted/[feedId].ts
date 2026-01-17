@@ -3,6 +3,42 @@ import { put, del, list } from '@vercel/blob';
 import { createHash } from 'crypto';
 import { parseAuthHeader, parseFeedAuthHeader } from '../_utils/adminAuth.js';
 
+const PI_API_KEY = process.env.PODCASTINDEX_API_KEY;
+const PI_API_SECRET = process.env.PODCASTINDEX_API_SECRET;
+
+// Notify Podcast Index to refresh feed (fire and forget)
+async function notifyPodcastIndex(feedUrl: string): Promise<void> {
+  if (!PI_API_KEY || !PI_API_SECRET) return;
+
+  try {
+    const apiHeaderTime = Math.floor(Date.now() / 1000);
+    const hash = createHash('sha1')
+      .update(PI_API_KEY + PI_API_SECRET + apiHeaderTime)
+      .digest('hex');
+
+    const headers = {
+      'X-Auth-Key': PI_API_KEY,
+      'X-Auth-Date': apiHeaderTime.toString(),
+      'Authorization': hash,
+      'User-Agent': 'MSP2.0/1.0 (Music Side Project Studio)'
+    };
+
+    await fetch(`https://api.podcastindex.org/api/1.0/add/byfeedurl?url=${encodeURIComponent(feedUrl)}`, {
+      method: 'POST',
+      headers
+    });
+  } catch {
+    // Silent fail - don't block feed update
+  }
+}
+
+// Get base URL from request
+function getBaseUrl(req: VercelRequest): string {
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  return `${proto}://${host}`;
+}
+
 // Hash token for comparison
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -200,6 +236,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           contentType: 'application/json',
           addRandomSuffix: false
         });
+
+        // Notify Podcast Index to refresh (fire and forget)
+        const stableUrl = `${getBaseUrl(req)}/api/hosted/${feedId}.xml`;
+        notifyPodcastIndex(stableUrl);
 
         return res.status(200).json({ success: true });
       }

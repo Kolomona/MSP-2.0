@@ -165,6 +165,7 @@ export function DownloadCatalogSection({ publisherFeed }: DownloadCatalogSection
           borderRadius: '4px',
           fontSize: '13px'
         }}>&lt;podcast:publisher&gt;</code> tag automatically added, linking them to this publisher feed.
+        These feeds will need to be re-uploaded to wherever you're currently hosting them.
         <strong style={{ display: 'block', marginTop: '8px', color: 'var(--text-primary)' }}>
           Note: Your publisher feed must also be submitted to the Podcast Index for the reference to resolve.
         </strong>
