@@ -88,6 +88,7 @@ export interface Track {
   persons: Person[];
   overrideValue: boolean;
   value?: ValueBlock;
+  unknownItemElements?: Record<string, unknown>;
 }
 
 export interface Album {
@@ -135,6 +136,9 @@ export interface Album {
 
   // Publisher reference (optional - links this feed to a parent publisher feed)
   publisher?: PublisherReference;
+
+  // Unknown/unsupported XML elements (preserved for round-trip)
+  unknownChannelElements?: Record<string, unknown>;
 
   // Tracks
   tracks: Track[];
@@ -184,6 +188,9 @@ export interface PublisherFeed {
 
   // Funding
   funding: Funding[];
+
+  // Unknown/unsupported XML elements (preserved for round-trip)
+  unknownChannelElements?: Record<string, unknown>;
 
   // Remote items - the feeds this publisher owns
   remoteItems: RemoteItem[];
