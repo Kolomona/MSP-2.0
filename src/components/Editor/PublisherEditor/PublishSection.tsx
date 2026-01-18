@@ -7,7 +7,6 @@ import { useFeed } from '../../../store/feedStore';
 import {
   publishPublisherFeed,
   getPublishStatus,
-  getCatalogFeedsStatus,
   type PublishProgress,
   type PublishResult
 } from '../../../utils/publisherPublish';
@@ -21,7 +20,6 @@ interface PublishSectionProps {
 type StepStatus = 'pending' | 'in-progress' | 'complete' | 'error' | 'skipped';
 
 interface StepState {
-  hostingCatalog: StepStatus;
   hosting: StepStatus;
   notifying: StepStatus;
   updatingCatalog: StepStatus;
@@ -37,14 +35,12 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
   const [publishResult, setPublishResult] = useState<PublishResult | null>(null);
   const [progress, setProgress] = useState<PublishProgress | null>(null);
   const [stepStates, setStepStates] = useState<StepState>({
-    hostingCatalog: 'pending',
     hosting: 'pending',
     notifying: 'pending',
     updatingCatalog: 'pending'
   });
 
   // Options
-  const [hostCatalogFeeds, setHostCatalogFeeds] = useState(true);
   const [updateCatalogFeeds, setUpdateCatalogFeeds] = useState(true);
   const [linkNostr, setLinkNostr] = useState(true);
 
@@ -54,13 +50,11 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
 
   // Current status
   const [status, setStatus] = useState(() => getPublishStatus(publisherFeed.podcastGuid));
-  const [catalogStatus, setCatalogStatus] = useState(() => getCatalogFeedsStatus(publisherFeed.remoteItems));
 
-  // Refresh status when podcastGuid or remoteItems change
+  // Refresh status when podcastGuid changes
   useEffect(() => {
     setStatus(getPublishStatus(publisherFeed.podcastGuid));
-    setCatalogStatus(getCatalogFeedsStatus(publisherFeed.remoteItems));
-  }, [publisherFeed.podcastGuid, publisherFeed.remoteItems]);
+  }, [publisherFeed.podcastGuid]);
 
   const isPublished = status.isPublished;
   const feedUrl = status.feedUrl;
@@ -78,28 +72,19 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
       const newState = { ...prev };
 
       switch (progress.step) {
-        case 'hosting-catalog':
-          newState.hostingCatalog = 'in-progress';
-          break;
         case 'hosting':
-          if (hostCatalogFeeds && catalogStatus.needsHosting > 0) {
-            newState.hostingCatalog = 'complete';
-          }
           newState.hosting = 'in-progress';
           break;
         case 'notifying':
-          newState.hostingCatalog = hostCatalogFeeds && catalogStatus.needsHosting > 0 ? 'complete' : 'skipped';
           newState.hosting = 'complete';
           newState.notifying = 'in-progress';
           break;
         case 'updating-catalog':
-          newState.hostingCatalog = hostCatalogFeeds && catalogStatus.needsHosting > 0 ? 'complete' : 'skipped';
           newState.hosting = 'complete';
           newState.notifying = 'complete';
           newState.updatingCatalog = 'in-progress';
           break;
         case 'complete':
-          newState.hostingCatalog = hostCatalogFeeds && catalogStatus.needsHosting > 0 ? 'complete' : 'skipped';
           newState.hosting = 'complete';
           newState.notifying = 'complete';
           newState.updatingCatalog = updateCatalogFeeds && publisherFeed.remoteItems.length > 0 ? 'complete' : 'skipped';
@@ -111,7 +96,7 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
 
       return newState;
     });
-  }, [progress, hostCatalogFeeds, updateCatalogFeeds, catalogStatus.needsHosting, publisherFeed.remoteItems.length]);
+  }, [progress, updateCatalogFeeds, publisherFeed.remoteItems.length]);
 
   const handlePublish = async () => {
     // For first-time publish without Nostr, require token acknowledgment
@@ -125,14 +110,13 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
     setIsPublishing(true);
     setPublishResult(null);
     setStepStates({
-      hostingCatalog: 'pending',
       hosting: 'pending',
       notifying: 'pending',
       updatingCatalog: 'pending'
     });
 
     const result = await publishPublisherFeed(publisherFeed, {
-      hostCatalogFeeds: hostCatalogFeeds && catalogStatus.needsHosting > 0,
+      hostCatalogFeeds: false,
       updateCatalogFeeds: updateCatalogFeeds && publisherFeed.remoteItems.length > 0,
       linkNostr: isLoggedIn && linkNostr,
       nostrPubkey: nostrState.user?.pubkey,
@@ -145,7 +129,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
     if (result.success) {
       // Refresh status
       setStatus(getPublishStatus(publisherFeed.podcastGuid));
-      setCatalogStatus(getCatalogFeedsStatus(publisherFeed.remoteItems));
 
       // If this was a first-time publish, store the hosted info for token display
       if (!isPublished && result.hostedInfo) {
@@ -161,7 +144,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
       const currentStep = progress?.step;
       setStepStates(prev => ({
         ...prev,
-        ...(currentStep === 'hosting-catalog' && { hostingCatalog: 'error' }),
         ...(currentStep === 'hosting' && { hosting: 'error' }),
         ...(currentStep === 'notifying' && { notifying: 'error' }),
         ...(currentStep === 'updating-catalog' && { updatingCatalog: 'error' })
@@ -177,21 +159,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
       case 'error': return <span style={{ color: 'var(--danger-color)' }}>✗</span>;
       case 'skipped': return <span style={{ color: 'var(--text-secondary)' }}>–</span>;
     }
-  };
-
-  const getCatalogHostSummary = () => {
-    if (!publishResult?.catalogHostResults) return 'Complete';
-
-    const hosted = publishResult.catalogHostResults.filter(r => r.status === 'hosted').length;
-    const skipped = publishResult.catalogHostResults.filter(r => r.status === 'skipped').length;
-    const errors = publishResult.catalogHostResults.filter(r => r.status === 'error').length;
-
-    const parts = [];
-    if (hosted > 0) parts.push(`${hosted} hosted`);
-    if (skipped > 0) parts.push(`${skipped} existed`);
-    if (errors > 0) parts.push(`${errors} failed`);
-
-    return parts.join(', ') || 'Complete';
   };
 
   const getCatalogUpdateSummary = () => {
@@ -232,41 +199,7 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
         overflow: 'hidden',
         marginBottom: '16px'
       }}>
-        {/* Step 1: Host Catalog Feeds */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--border-color)',
-          backgroundColor: stepStates.hostingCatalog === 'in-progress' ? 'var(--bg-secondary)' : 'transparent',
-          opacity: catalogStatus.needsHosting === 0 ? 0.5 : 1
-        }}>
-          <span style={{ width: '24px', fontSize: '16px' }}>{getStepIcon(stepStates.hostingCatalog)}</span>
-          <span style={{ flex: 1, fontWeight: 500 }}>
-            Host catalog feeds
-            {catalogStatus.needsHosting > 0 && (
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>
-                {' '}({catalogStatus.needsHosting} of {catalogStatus.total})
-              </span>
-            )}
-          </span>
-          <span style={{
-            fontSize: '13px',
-            color: stepStates.hostingCatalog === 'complete' ? 'var(--success-color)' :
-              stepStates.hostingCatalog === 'error' ? 'var(--danger-color)' :
-                'var(--text-secondary)'
-          }}>
-            {catalogStatus.needsHosting === 0 ? 'All hosted' :
-              stepStates.hostingCatalog === 'in-progress' ? (progress?.catalogProgress
-                ? `${progress.catalogProgress.current}/${progress.catalogProgress.total}`
-                : 'Processing...') :
-              stepStates.hostingCatalog === 'complete' ? getCatalogHostSummary() :
-              stepStates.hostingCatalog === 'error' ? 'Failed' :
-              stepStates.hostingCatalog === 'skipped' ? 'Skipped' : 'Not started'}
-          </span>
-        </div>
-
-        {/* Step 2: Host Publisher Feed on MSP */}
+        {/* Step 1: Host Publisher Feed on MSP */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -288,7 +221,7 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
           </span>
         </div>
 
-        {/* Step 3: Notify Podcast Index */}
+        {/* Step 2: Notify Podcast Index */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -310,7 +243,7 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
           </span>
         </div>
 
-        {/* Step 4: Update Catalog Feeds with Publisher Reference */}
+        {/* Step 3: Update Catalog Feeds with Publisher Reference */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -347,32 +280,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
       {/* Options */}
       {!isPublishing && (
         <div style={{ marginBottom: '16px' }}>
-          {catalogStatus.needsHosting > 0 && (
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              padding: '8px',
-              backgroundColor: hostCatalogFeeds ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-              borderRadius: '4px',
-              border: hostCatalogFeeds ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent'
-            }}>
-              <input
-                type="checkbox"
-                checked={hostCatalogFeeds}
-                onChange={(e) => setHostCatalogFeeds(e.target.checked)}
-                style={{ width: '16px', height: '16px' }}
-              />
-              <span style={{ color: hostCatalogFeeds ? '#3b82f6' : 'var(--text-primary)' }}>
-                Host {catalogStatus.needsHosting} catalog feed{catalogStatus.needsHosting > 1 ? 's' : ''} on MSP
-              </span>
-              <InfoIcon text="Fetches each catalog feed from its current URL and hosts it on MSP. This gives you edit credentials for those feeds." />
-            </label>
-          )}
-
           {publisherFeed.remoteItems.length > 0 && (
             <label style={{
               display: 'flex',
@@ -641,60 +548,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Catalog Host Results */}
-      {publishResult?.catalogHostResults && publishResult.catalogHostResults.length > 0 && (
-        <div style={{
-          marginTop: '16px',
-          border: '1px solid var(--border-color)',
-          borderRadius: '8px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            padding: '12px',
-            backgroundColor: 'var(--bg-secondary)',
-            borderBottom: '1px solid var(--border-color)',
-            fontWeight: 500
-          }}>
-            Catalog Feed Hosting
-          </div>
-          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-            {publishResult.catalogHostResults.map((result, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '10px 12px',
-                  gap: '8px',
-                  borderBottom: idx < publishResult.catalogHostResults!.length - 1 ? '1px solid var(--border-color)' : 'none'
-                }}
-              >
-                <span style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px',
-                  backgroundColor: result.status === 'hosted' ? 'var(--success-color)' :
-                    result.status === 'skipped' ? 'var(--text-secondary)' :
-                      'var(--danger-color)',
-                  color: 'white'
-                }}>
-                  {result.status === 'hosted' ? '✓' :
-                    result.status === 'skipped' ? '–' : '!'}
-                </span>
-                <span style={{ flex: 1, fontWeight: 500, fontSize: '14px' }}>{result.title}</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {result.message}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
