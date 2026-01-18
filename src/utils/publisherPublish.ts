@@ -280,6 +280,9 @@ async function processCatalogFeed(
       feedUrl: publisherFeedUrl
     };
 
+    // Update build date to reflect the modification
+    album.lastBuildDate = new Date().toUTCString();
+
     // Generate updated XML
     const updatedXml = generateRssFeed(album);
     const feedTitle = album.title || title;
