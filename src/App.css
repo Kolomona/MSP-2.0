@@ -1723,6 +1723,69 @@ body {
   gap: 8px;
 }
 
+/* Track Preview Container - Description + track art thumbnail */
+.track-preview-container {
+  margin-top: 0; /* already inside form-group spacing */
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.track-thumbnail-preview {
+  width: 140px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.track-description .form-textarea {
+  width: 100%;
+}
+
+.track-thumbnail-preview > div:first-child {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.track-thumbnail-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 768px) {
+  .track-preview-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .track-thumbnail-preview {
+    width: 120px;
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .track-preview-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .track-thumbnail-preview {
+    width: 100px;
+  }
+}
+
 .person-thumbnail-preview > div:first-child {
   width: 100%;
   aspect-ratio: 1;
