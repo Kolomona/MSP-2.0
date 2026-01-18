@@ -68,7 +68,6 @@ export function SaveModal({ onClose, album, publisherFeed, feedType = 'album', i
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [tokenAcknowledged, setTokenAcknowledged] = useState(false);
   const [linkingNostr, setLinkingNostr] = useState(false);
-  const [linkNostrOnCreate, setLinkNostrOnCreate] = useState(true); // Default to linking if logged in
   const [podcastIndexUrl, setPodcastIndexUrl] = useState('');
   const [submittingToIndex, setSubmittingToIndex] = useState(false);
   const [podcastIndexPageUrl, setPodcastIndexPageUrl] = useState<string | null>(null);
@@ -413,7 +412,7 @@ export function SaveModal({ onClose, album, publisherFeed, feedType = 'album', i
 
             let hostedResult;
             let newInfo: HostedFeedInfo;
-            const shouldLinkNostr = isLoggedIn && linkNostrOnCreate && nostrState.user?.pubkey;
+            const shouldLinkNostr = isLoggedIn && nostrState.user?.pubkey;
             if (shouldLinkNostr) {
               hostedResult = await createHostedFeedWithNostr(hostedXml, currentFeedTitle, currentFeedGuid, tokenToUse);
               newInfo = {
@@ -707,32 +706,8 @@ export function SaveModal({ onClose, album, publisherFeed, feedType = 'album', i
               )}
               {pendingToken && !hostedInfo && !legacyHostedInfo && (
                 <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--warning, #f59e0b)' }}>
-                  {isLoggedIn && (
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      marginBottom: '12px',
-                      padding: '10px',
-                      backgroundColor: linkNostrOnCreate ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                      borderRadius: '4px',
-                      border: linkNostrOnCreate ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={linkNostrOnCreate}
-                        onChange={(e) => setLinkNostrOnCreate(e.target.checked)}
-                        style={{ width: '16px', height: '16px' }}
-                      />
-                      <span style={{ color: linkNostrOnCreate ? '#a78bfa' : 'var(--text-secondary)' }}>
-                        Link to my Nostr identity (edit from any device without needing the token)
-                      </span>
-                    </label>
-                  )}
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.875rem', fontWeight: 600, color: 'var(--warning, #f59e0b)' }}>
-                    {isLoggedIn && linkNostrOnCreate ? 'Backup Token (save this!)' : 'Edit Token (save this!)'}
+                    {isLoggedIn ? 'Backup Token (save this!)' : 'Edit Token (save this!)'}
                   </label>
                   <input
                     type="text"

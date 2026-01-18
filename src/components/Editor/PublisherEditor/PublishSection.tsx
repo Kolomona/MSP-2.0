@@ -42,7 +42,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
 
   // Options
   const [updateCatalogFeeds, setUpdateCatalogFeeds] = useState(true);
-  const [linkNostr, setLinkNostr] = useState(true);
 
   // Token acknowledgment (for first-time publish)
   const [tokenAcknowledged, setTokenAcknowledged] = useState(false);
@@ -118,7 +117,7 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
     const result = await publishPublisherFeed(publisherFeed, {
       hostCatalogFeeds: false,
       updateCatalogFeeds: updateCatalogFeeds && publisherFeed.remoteItems.length > 0,
-      linkNostr: isLoggedIn && linkNostr,
+      linkNostr: isLoggedIn,
       nostrPubkey: nostrState.user?.pubkey,
       onProgress: setProgress
     });
@@ -300,30 +299,6 @@ export function PublishSection({ publisherFeed }: PublishSectionProps) {
             </label>
           )}
 
-          {isLoggedIn && !isPublished && (
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              padding: '8px',
-              backgroundColor: linkNostr ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-              borderRadius: '4px',
-              border: linkNostr ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid transparent'
-            }}>
-              <input
-                type="checkbox"
-                checked={linkNostr}
-                onChange={(e) => setLinkNostr(e.target.checked)}
-                style={{ width: '16px', height: '16px' }}
-              />
-              <span style={{ color: linkNostr ? '#a78bfa' : 'var(--text-primary)' }}>
-                Link to my Nostr identity
-              </span>
-              <InfoIcon text="Link your Nostr identity to this feed so you can edit it from any device without needing the edit token." />
-            </label>
-          )}
         </div>
       )}
 
