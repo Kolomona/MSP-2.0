@@ -113,6 +113,8 @@ export interface Track {
   duration: string;
   explicit: boolean;
   trackArtUrl?: string;
+  trackArtWidth?: number;
+  trackArtHeight?: number;
   bannerArtUrl?: string;
   transcriptUrl?: string;
   transcriptType?: string;

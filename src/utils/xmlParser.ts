@@ -503,15 +503,20 @@ function parseTrack(node: unknown, trackNumber: number, albumValue: ValueBlock, 
   if (itunesImage) {
     track.trackArtUrl = getAttr(itunesImage, 'href') || '';
   }
-  // Fallback to podcast:images if no itunes:image
-  if (!track.trackArtUrl) {
-    const podcastImages = item['podcast:images'];
-    if (podcastImages) {
-      // podcast:images uses srcset attribute
+  // Check podcast:images for URL (if no itunes:image) and dimensions
+  const podcastImages = item['podcast:images'];
+  if (podcastImages) {
+    // Fallback to podcast:images srcset for URL if no itunes:image
+    if (!track.trackArtUrl) {
       const srcset = getAttr(podcastImages, 'srcset') || '';
       // srcset can be a single URL or multiple URLs with sizes - take the first one
       track.trackArtUrl = srcset.split(' ')[0] || '';
     }
+    // Parse width and height attributes
+    const width = getAttr(podcastImages, 'width');
+    const height = getAttr(podcastImages, 'height');
+    if (width) track.trackArtWidth = parseInt(width) || undefined;
+    if (height) track.trackArtHeight = parseInt(height) || undefined;
   }
 
   // Transcript

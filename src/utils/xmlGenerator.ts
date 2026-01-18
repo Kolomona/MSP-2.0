@@ -401,7 +401,10 @@ const generateTrackXml = (track: Track, album: Album, level: number): string => 
   if (artUrl) {
     lines.push(`${indent(level + 1)}<itunes:image href="${escapeXml(artUrl)}" />`);
     // Add podcast:images for better Podcast 2.0 app compatibility
-    lines.push(`${indent(level + 1)}<podcast:images srcset="${escapeXml(artUrl)}" />`);
+    const imageAttrs = [`srcset="${escapeXml(artUrl)}"`];
+    if (track.trackArtWidth) imageAttrs.push(`width="${track.trackArtWidth}"`);
+    if (track.trackArtHeight) imageAttrs.push(`height="${track.trackArtHeight}"`);
+    lines.push(`${indent(level + 1)}<podcast:images ${imageAttrs.join(' ')} />`);
   }
 
   // Enclosure (audio file)
