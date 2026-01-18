@@ -16,7 +16,7 @@ import {
 } from './hostedFeed';
 import { hasSigner } from './nostrSigner';
 import { fetchFeedFromUrl, parseRssFeed } from './xmlParser';
-import { generateRssFeed, downloadXml } from './xmlGenerator';
+import { generateRssFeed } from './xmlGenerator';
 
 // Types for publish flow
 export type PublishStep = 'idle' | 'hosting-catalog' | 'hosting' | 'notifying' | 'updating-catalog' | 'complete' | 'error';
